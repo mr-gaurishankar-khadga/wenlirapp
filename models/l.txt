@@ -1,0 +1,175 @@
+const mongoose = require('mongoose');
+
+const productSchema = new mongoose.Schema({
+  basic_details: {
+    name: {
+      type: String,
+      required: [true, 'Product name is required'],
+      trim: true
+    },
+    sku: {
+      type: String,
+      required: [true, 'SKU is required'],
+      unique: true,
+      trim: true
+    },
+    description: {
+      type: String,
+      required: [true, 'Description is required']
+    },
+    selling_price: {
+      type: Number,
+      required: [true, 'Selling price is required'],
+      min: 0
+    },
+    weight: {
+      type: Number,
+      required: [true, 'Weight is required'],
+      min: 0
+    },
+    hsn_code: {
+      type: String,
+      required: [true, 'HSN code is required'],
+      trim: true
+    },
+    brand_name: String,
+    category: {
+      type: String,
+      required: [true, 'Category is required']
+    }
+  },
+  dimensions: {
+    length: {
+      type: Number,
+      required: [true, 'Length is required'],
+      min: 0
+    },
+    width: {
+      type: Number,
+      required: [true, 'Width is required'],
+      min: 0
+    },
+    height: {
+      type: Number,
+      required: [true, 'Height is required'],
+      min: 0
+    },
+    unit: {
+      type: String,
+      default: 'cm',
+      enum: ['cm', 'inch']
+    }
+  },
+  inventory: {
+    stock_quantity: {
+      type: Number,
+      required: [true, 'Stock quantity is required'],
+      min: 0
+    },
+    low_stock_threshold: {
+      type: Number,
+      default: 10,
+      min: 0
+    },
+    manage_inventory: {
+      type: Boolean,
+      default: true
+    }
+  },
+
+
+
+
+  shipping_details: {
+    is_returnable: {
+      type: Boolean,
+      default: false
+    },  
+    package_dimensions: {
+      length: Number,
+      width: Number,
+      height: Number,
+      unit: {
+        type: String,
+        default: 'cm',
+        enum: ['cm', 'inch']
+      }
+    },
+
+    shipping_mode: {
+      type: String,
+      required: [true, 'Shipping mode is required'],
+      enum: ['Standard', 'Express']
+    },
+    origin_pincode: {
+      type: String,
+      required: [true, 'Origin pincode is required'],
+      trim: true
+    },
+    pickup_location: String
+  },
+
+
+
+
+  variants: [{
+    color: String,
+    size: String,
+
+    variant_sku: {
+      type: String,
+      unique: true,
+      sparse: true
+    },
+    variant_price: {
+      type: Number,
+      min: 0
+    },
+    stock: {
+      type: Number,
+      min: 0
+    }
+  }],
+
+
+
+
+  tax_details: {
+    gst_percentage: {
+      type: Number,
+      required: [true, 'GST percentage is required'],
+      min: 0,
+      max: 100
+    },
+    hsn_code: String
+  },
+
+  images: [{
+    url: {
+      type: String,
+      required: true
+    },
+    is_default: {
+      type: Boolean,
+      default: false
+    },
+    position: {
+      type: Number,
+      default: 0
+    }
+  }],
+
+  status: {
+    type: String,
+    enum: ['active', 'inactive', 'draft'],
+    default: 'draft'
+  }
+}, 
+
+{
+  timestamps: {
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
+  }
+});
+

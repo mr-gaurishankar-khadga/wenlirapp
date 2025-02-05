@@ -13,10 +13,10 @@ console.log(`Generated JWT Secret Key: ${JWT_SECRET}`);
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: 'udaymaharshi0506@gmail.com',
-    pass: 'xxjs kiqa hdmn xpol',
+    user: 'wenlifashions@gmail.com',
+    pass: 'uwoh jtud qabp ynjf',
   },
-});
+}); 
 
 
 
@@ -25,7 +25,7 @@ router.get('/google', passport.authenticate('google', { scope: ['profile', 'emai
 router.get('/google/callback',
   passport.authenticate('google', { failureRedirect: '/' }),
   (req, res) => {
-    res.redirect('http://localhost:3000/profile');
+    res.redirect('http://localhost:5173/profile');
   }
 );
 

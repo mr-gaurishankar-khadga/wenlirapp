@@ -9,8 +9,8 @@ const otpStore = new Map();
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: 'udaymaharshi0506@gmail.com',  
-    pass: 'xxjs kiqa hdmn xpol'  
+    user: 'wenlifashions@gmail.com',  
+    pass: 'uwoh jtud qabp ynjf'  
   }
 });
 
@@ -52,9 +52,9 @@ router.post('/', async (req, res) => {
     await newPayment.save();
 
     const mailOptions = {
-      from: 'udaymaharshi0506@gmail.com',
+      from: 'wenlifashions@gmail.com',
       to: email,
-      subject: 'Payment Confirmation',
+      subject: 'Order Confirm',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
           <div style="background-color: #181818; color: #fff; padding: 20px; text-align: center;">
@@ -62,7 +62,7 @@ router.post('/', async (req, res) => {
             <h1 style="margin: 0; font-size: 24px;">Wenli.in</h1>
           </div>
           <div style="padding: 20px;">
-            <h2 style="color: #333;">Payment Confirmation</h2>
+            <h2 style="color: #333;">Order Confirm</h2>
             <p style="font-size: 16px; color: #555;">Thank you for your payment of <strong>Rs.${price}</strong>. Your order details are as follows:</p>
             <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
               <thead>
@@ -86,7 +86,7 @@ router.post('/', async (req, res) => {
                 </tr>
               </tbody>
             </table>
-            <p style="font-size: 16px; color: #555;">If you have any questions about your order, please contact us at <a href="mailto:support@wenli.in" style="color: #007bff;">support@wenli.in</a>.</p>
+            <p style="font-size: 16px; color: #555;">If you have any questions about your order, please contact us at <a href="www.wenli.in" style="color: #007bff;">wenlifashions@gmail.com</a>.</p>
           </div>
           <div style="background-color: #f5f5f5; color: #555; padding: 10px; text-align: center;">
             <p style="font-size: 14px; margin: 0;">Wenli, Jaypur, Rajasthan</p>
@@ -153,25 +153,25 @@ router.post('/send-payment-otp', async (req, res) => {
     });
     
     const mailOptions = {
-      from: 'ggs699000@gmail.com',
+      from: 'wenlifashions@gmail.com',
       to: email,
-      subject: 'Payment Verification OTP',
+      subject: 'Verifify OTP',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
           <div style="background-color:black; color: #fff; padding: 20px; text-align: center;">
-            <img src="/images/WENLI.svg" alt="Brand Logo" style="max-height: 50px; margin-bottom: 10px;">
-            <h1 style="margin: 0; font-size: 24px; font-family: 'Roboto', sans-serif;">Your Brand Name</h1>
+            <img src="/WENLI.svg" alt="Brand Logo" style="max-height: 50px; margin-bottom: 10px;">
+            <h1 style="margin: 0; font-size: 24px; font-family: 'Roboto', sans-serif;">Wenli.in</h1>
           </div>
           <div style="padding: 30px; text-align: center;">
             <h2 style="color: #333; font-size: 28px; font-family: 'Roboto', sans-serif; margin-bottom: 10px;">Payment Verification OTP</h2>
             <p style="font-size: 16px; color: #555; margin-bottom: 20px;">We received a request to verify your payment. Please use the following OTP to complete your transaction:</p>
-            <h1 style="color: #4CAF50; font-size: 40px; letter-spacing: 5px; font-family: 'Arial', sans-serif; font-weight: bold; margin: 0;">${otp}</h1>
+            <h1 style="color: #181818; font-size: 40px; letter-spacing: 5px; font-family: 'Arial', sans-serif; font-weight: bold; margin: 0;">${otp}</h1>
             <p style="font-size: 16px; color: #555; margin-top: 20px;">This OTP will expire in 5 minutes.</p>
             <p style="font-size: 16px; color: #555; margin-top: 10px;">If you did not request this, please ignore this email.</p>
           </div>
           <div style="background-color: #f5f5f5; color: #555; padding: 10px; text-align: center;">
-            <p style="font-size: 14px; margin: 0;">Your Brand Name, Your Address, Your City, Your Country</p>
-            <p style="font-size: 14px; margin: 0;">&copy; ${new Date().getFullYear()} Your Brand Name. All rights reserved.</p>
+            <p style="font-size: 14px; margin: 0;">Wenli.in, Jaipur Rajasthan, India </p>
+            <p style="font-size: 14px; margin: 0;">&copy; ${new Date().getFullYear()} Wenli.in. All rights reserved.</p>
           </div>
         </div>
       `

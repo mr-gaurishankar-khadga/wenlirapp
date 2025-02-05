@@ -5,8 +5,8 @@ const nodemailer = require('nodemailer');
 const mongoose = require('mongoose');
 
 
-const EMAIL_USER = 'udaymaharshi0506@gmail.com';
-const EMAIL_PASS = 'xxjs kiqa hdmn xpol'; 
+const EMAIL_USER = 'wenlifashions@gmail.com';
+const EMAIL_PASS = 'uwoh jtud qabp ynjf'; 
 
 // Create a transporter using SMTP
 const transport = nodemailer.createTransport({

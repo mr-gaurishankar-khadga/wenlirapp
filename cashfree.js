@@ -1,8 +1,6 @@
-// Backend: cashfree.routes.js
-
 const express = require('express');
-const axios = require('axios');
 const router = express.Router();
+const axios = require('axios');
 const crypto = require('crypto');
 
 // Create Cashfree order
@@ -42,7 +40,8 @@ router.post('/create-order', async (req, res) => {
     );
 
     res.json({
-      paymentLink: response.data.payment_link
+      paymentLink: response.data.payment_link,
+      orderId: orderData.order_id
     });
   } catch (error) {
     console.error('Cashfree Order Creation Error:', error.response?.data || error.message);
@@ -53,12 +52,13 @@ router.post('/create-order', async (req, res) => {
   }
 });
 
-// Verify payment status
-router.post('/verify-payment', async (req, res) => {
+// Verify payment and create Shiprocket order
+router.post('/verify-and-create-order', async (req, res) => {
   try {
-    const { orderId } = req.body;
+    const { orderId, orderDetails } = req.body;
     
-    const response = await axios.get(
+    // First verify Cashfree payment
+    const paymentResponse = await axios.get(
       `https://sandbox.cashfree.com/pg/orders/${orderId}`,
       {
         headers: {
@@ -69,21 +69,94 @@ router.post('/verify-payment', async (req, res) => {
       }
     );
 
-    if (response.data.order_status === 'PAID') {
-      res.json({ success: true });
-    } else {
-      res.json({ success: false, message: 'Payment not completed' });
+    if (paymentResponse.data.order_status !== 'PAID') {
+      return res.json({ success: false, message: 'Payment not completed' });
     }
+
+    // Create Shiprocket order after payment verification
+    const loginResponse = await axios.post('https://apiv2.shiprocket.in/v1/external/auth/login', {
+      email: 'wenliFashions.in@gmail.com',
+      password: '#Wenli@123#45'
+    });
+
+    if (!loginResponse.data.token) {
+      throw new Error('Shiprocket authentication failed');
+    }
+
+    const token = loginResponse.data.token;
+    const shiprocketOrderId = `WF-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    const shiprocketOrderData = {
+      order_id: shiprocketOrderId,
+      order_date: new Date().toISOString().split('T')[0],
+      pickup_location: "Home",
+      channel_id: "5794009",
+      billing_customer_name: orderDetails.name,
+      billing_last_name: "NA",
+      billing_address: orderDetails.address,
+      billing_city: orderDetails.city,
+      billing_pincode: orderDetails.pincode,
+      billing_state: orderDetails.state,
+      billing_country: "India",
+      billing_email: orderDetails.email,
+      billing_phone: orderDetails.phone,
+      shipping_is_billing: true,
+      order_items: [
+        {
+          name: orderDetails.product.title,
+          sku: `SKU-${orderDetails.product.id || Date.now()}`,
+          units: parseInt(orderDetails.quantity),
+          selling_price: parseFloat(orderDetails.product.price),
+          discount: 0,
+          tax: 18,
+          hsn: 621710
+        }
+      ],
+      payment_method: "Prepaid",
+      sub_total: parseFloat(orderDetails.product.price) * parseInt(orderDetails.quantity),
+      length: 10,
+      breadth: 5,
+      height: 2,
+      weight: 0.5
+    };
+
+    const createOrderResponse = await axios.post(
+      'https://apiv2.shiprocket.in/v1/external/orders/create/adhoc',
+      shiprocketOrderData,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      }
+    );
+
+    const finalOrderData = {
+      ...orderDetails,
+      id: createOrderResponse.data.order_id,
+      shipmentId: createOrderResponse.data.shipment_id,
+      orderDate: new Date().toISOString(),
+      status: 'Confirmed'
+    };
+
+    res.json({
+      success: true,
+      orderData: finalOrderData
+    });
+
   } catch (error) {
-    console.error('Payment verification error:', error);
-    res.status(500).json({ success: false, error: 'Payment verification failed' });
+    console.error('Order processing failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Order processing failed',
+      details: error.message
+    });
   }
 });
 
 // Webhook handler
 router.post('/webhook', async (req, res) => {
   try {
-    // Verify webhook signature
     const webhookSignature = req.headers['x-webhook-signature'];
     const computedSignature = crypto
       .createHmac('sha256', process.env.CASHFREE_CLIENT_SECRET)
@@ -95,17 +168,14 @@ router.post('/webhook', async (req, res) => {
       return res.status(400).send('Invalid signature');
     }
 
-    // Process webhook based on event type
     const event = req.body.event;
     const orderId = req.body.order.order_id;
 
     switch (event) {
       case 'order.paid':
-        // Payment successful - you can store this status in your database
         console.log(`Payment successful for order ${orderId}`);
         break;
       case 'order.failed':
-        // Payment failed
         console.log(`Payment failed for order ${orderId}`);
         break;
       default:

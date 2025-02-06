@@ -26,6 +26,7 @@ transporter.verify((error, success) => {
 
 
 router.post('/', async (req, res) => {
+  
   const {shiprocketOrderId,shipmentId, product, quantity, paymentMethod, price, address, email, name, phone, secAddress, pincode, buiding, state, city, size, status } = req.body;
 
   try {
@@ -118,16 +119,56 @@ router.post('/', async (req, res) => {
 
 
 
-// API endpoint to fetch all payments
-router.get('/api/payments', async (req, res) => {
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Get orders by user email
+router.get('/user-orders/:email', async (req, res) => {
   try {
-    const payments = await Payment.find();
-    res.status(200).json(payments);
+    const { email } = req.params;
+    const orders = await Payment.find({ email: email })
+      .sort({ timestamp: -1 }); // Sort by newest first
+    
+    res.status(200).json(orders);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error fetching payment data', error });
+    console.error('Error fetching user orders:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error fetching orders',
+      error: error.message 
+    });
   }
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

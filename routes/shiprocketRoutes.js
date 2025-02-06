@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
+const Payment = require('../models/paymentModel'); 
 
 // Shiprocket credentials
 const SHIPROCKET_EMAIL = 'wenliFashions.in@gmail.com';
@@ -88,5 +89,143 @@ router.post('/create-order', async (req, res) => {
     });
   }
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Cancel order
+router.post('/cancel-order', async (req, res) => {
+    try {
+      const { orderId } = req.body;
+      
+      // First, get the payment record to verify the Shiprocket order ID
+      const payment = await Payment.findById(orderId);
+      if (!payment) {
+        return res.status(404).json({ message: 'Order not found' });
+      }
+  
+      if (!payment.shiprocketOrderId) {
+        return res.status(400).json({ message: 'No Shiprocket order ID found for this order' });
+      }
+  
+      const token = await getShiprocketToken();
+  
+      // Cancel order in Shiprocket
+      const cancelResponse = await axios.post(
+        'https://apiv2.shiprocket.in/v1/external/orders/cancel',
+        {
+          ids: [payment.shiprocketOrderId],
+          cancellation_reason: 'Cancelled by customer'
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+  
+      // Update order status in database
+      payment.status = 'Cancelled';
+      await payment.save();
+  
+      res.json({
+        success: true,
+        message: 'Order cancelled successfully',
+        data: cancelResponse.data
+      });
+  
+    } catch (error) {
+      console.error('Order cancellation failed:', error.response?.data || error.message);
+      res.status(error.response?.status || 500).json({
+        success: false,
+        message: error.response?.data?.message || 'Failed to cancel order',
+        error: error.response?.data || error.message
+      });
+    }
+  });
+  
+  // Create return request
+  router.post('/create-return', async (req, res) => {
+    try {
+      const { orderId } = req.body;
+      
+      // First, get the payment record
+      const payment = await Payment.findById(orderId);
+      if (!payment) {
+        return res.status(404).json({ message: 'Order not found' });
+      }
+  
+      if (!payment.shiprocketOrderId) {
+        return res.status(400).json({ message: 'No Shiprocket order ID found for this order' });
+      }
+  
+      const token = await getShiprocketToken();
+  
+      // Create return request in Shiprocket
+      const returnResponse = await axios.post(
+        'https://apiv2.shiprocket.in/v1/external/orders/create/return',
+        {
+          order_id: payment.shiprocketOrderId,
+          order_date: new Date(payment.timestamp).toISOString().split('T')[0],
+          channel_id: "5794009",
+          return_reason: 'Customer initiated return',
+          shipping_method_id: "1"
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+  
+      // Update order status in database
+      payment.status = 'Return Requested';
+      await payment.save();
+  
+      res.json({
+        success: true,
+        message: 'Return request created successfully',
+        data: returnResponse.data
+      });
+  
+    } catch (error) {
+      console.error('Return request failed:', error.response?.data || error.message);
+      res.status(error.response?.status || 500).json({
+        success: false,
+        message: error.response?.data?.message || 'Failed to create return request',
+        error: error.response?.data || error.message
+      });
+    }
+  });
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 module.exports = router;

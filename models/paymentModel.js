@@ -36,6 +36,15 @@ const paymentSchema = new mongoose.Schema({
 
   phone:{ type: Number},
 
+  shiprocketOrderId: {
+    type: String,
+    trim: true
+  },
+  shipmentId: {
+    type: String,
+    trim: true
+  },
+
   
 
   timestamp: { type: Date, default: Date.now }

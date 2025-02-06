@@ -19,7 +19,7 @@ const reviewRoutes = require('./routes/reviewRoutes');
 
 const cashfreeRoutes = require('./cashfree');
 
-
+const shiprocketRoutes = require('./routes/shiprocketRoutes');
 
 const app = express();
 
@@ -119,73 +119,12 @@ app.use('/', messageRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/', cashfreeRoutes);
 app.use('/api/cashfree', cashfreeRoutes);
+app.use('/api/shiprocket', shiprocketRoutes);
+
 
 
 const router = express.Router();
 module.exports = router;
-
-
-
-
-
-// app.post('/api/create-order', async (req, res) => {
-//   try {
-//     const orderResponse = await createOrder(req.body);
-//     res.json(orderResponse);
-//   } catch (error) {
-//     console.error('Payment Error:', error.details);
-//     res.status(500).json({ 
-//       error: error.message,
-//       details: error.details 
-//     });
-//   }
-// });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-app.post('/api/orders/user-orders', async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    const userOrders = await Payment.find({ email }).sort({ createdAt: -1 });
-
-    if (userOrders.length === 0) {
-      return res.status(404).json({ message: 'No orders found' });
-    }
-
-    res.status(200).json(userOrders);
-  } catch (error) {
-    res.status(500).json({ 
-      message: 'Order retrieval failed', 
-      error: error.message 
-    });
-  }
-});
-
-
-
-
-
-
-
-
-
 
 
 
@@ -198,12 +137,20 @@ app.get('/auth/google',
   })
 );
 
-app.get('/auth/google/callback',
+app.get('/auth/google/callback', 
   passport.authenticate('google', { failureRedirect: '/' }),
   (req, res) => {
-    res.redirect('http://localhost:5173/profile');
+    try {
+      const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
+      res.redirect(`${CLIENT_URL}/profile`);
+    } catch (error) {
+      console.error('Error during callback:', error);
+      res.status(500).send('Internal Server Error');
+    }
   }
 );
+
+
 
 app.get('/profile', async (req, res) => {
   console.log('Profile route accessed');
@@ -242,71 +189,6 @@ app.get('/health', (req, res) => {
     timestamp: new Date(),
     uptime: process.uptime()
   });
-});
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// Order Schema
-const ReturnSchema = new mongoose.Schema({
-  id: { type: String, required: true, unique: true },
-  product: {
-    title: { type: String, required: true },
-    frontImage: { type: String, required: true }
-  },
-  quantity: { type: Number, required: true },
-  price: { type: Number, required: true },
-  size: { type: String, required: true },
-  paymentMethod: { type: String, required: true },
-  name: { type: String, required: true },
-  address: { type: String, required: true },
-  city: { type: String, required: true },
-  state: { type: String, required: true },
-  pincode: { type: String, required: true },
-  orderDate: { type: Date, default: Date.now }
-});
-
-const Return = mongoose.model('Return', ReturnSchema);
-
-// Order submission route
-app.post('/api/return', async (req, res) => {
-  try {
-    const newReturn = new Return(req.body);
-    await newReturn.save();
-    res.status(201).json({ 
-      message: 'You Have successfully Return The Order', 
-      orderId: newReturn._id 
-    });
-  } catch (error) {
-    console.error('Order submission error:', error);
-    res.status(500).json({ 
-      error: 'Failed to save order', 
-      details: error.message 
-    });
-  }
-});
-
-
-
-app.get('/api/return', async (req, res) => {
-  try {
-    const returns = await Return.find();
-    res.json(returns);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch returns' });
-  }
 });
 
 
@@ -378,6 +260,28 @@ app.get('/api/get-slides', async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

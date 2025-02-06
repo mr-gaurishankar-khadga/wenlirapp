@@ -22,12 +22,19 @@ const transporter = nodemailer.createTransport({
 
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
-router.get('/google/callback',
+router.get('/auth/google/callback', 
   passport.authenticate('google', { failureRedirect: '/' }),
   (req, res) => {
-    res.redirect('http://localhost:5173/profile');
+    try {
+      const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
+      res.redirect(`${CLIENT_URL}/profile`);
+    } catch (error) {
+      console.error('Error during callback:', error);
+      res.status(500).send('Internal Server Error');
+    }
   }
 );
+
 
 router.get('/profile', async (req, res) => {
   console.log('Profile route accessed');

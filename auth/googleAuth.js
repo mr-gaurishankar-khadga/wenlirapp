@@ -13,7 +13,8 @@ const initializeGoogleStrategy = () => {
     proxy: true
   }, async (accessToken, refreshToken, profile, done) => {
     try {
-      const existingUser = await User.findOne({ googleId: profile.id });
+      let existingUser = await User.findOne({ googleId: profile.id });
+      
       if (existingUser) {
         return done(null, existingUser);
       }
@@ -26,27 +27,24 @@ const initializeGoogleStrategy = () => {
 
       done(null, newUser);
     } catch (error) {
-      console.error('Error in Google Strategy:', error);
       done(error, null);
     }
   }));
-
-  // Serialize user for the session
-  passport.serializeUser((user, done) => {
-    done(null, user.id);
-  });
-
-  // Deserialize user from the session
-  passport.deserializeUser(async (id, done) => {
-    try {
-      const user = await User.findById(id);
-      done(null, user);
-    } catch (error) {
-      console.error('Error during deserialization:', error);
-      done(error, null);
-    }
-  });
 };
+
+// Update serialization to include all user data
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+
+passport.deserializeUser(async (id, done) => {
+  try {
+    const user = await User.findById(id);
+    done(null, user);
+  } catch (error) {
+    done(error, null);
+  }
+});
 
 // Authentication routes
 const googleAuthRoutes = (app) => {

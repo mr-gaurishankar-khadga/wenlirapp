@@ -75,7 +75,6 @@ const connectDB = async () => {
 connectDB();
 
 
-// Updated session configuration
 app.use(session({
   secret: process.env.SESSION_SECRET || generateRandomSecretKey(),
   resave: false,
@@ -88,8 +87,7 @@ app.use(session({
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    domain: process.env.NODE_ENV === 'production' ? 'https://fancy-dragon-929394.netlify.app' : undefined
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
   }
 }));
 
@@ -141,46 +139,35 @@ app.get('/auth/google',
     scope: ['profile', 'email'],
   })
 );
-// Updated callback route
-app.get('/auth/google/callback', 
-  passport.authenticate('google', { failureRedirect: '/' }),
-  (req, res) => {
-    const frontendURL = process.env.NODE_ENV === 'production'
-      ? 'https://fancy-dragon-929394.netlify.app'
-      : 'http://localhost:5173';
-    res.redirect(`${frontendURL}/profile`);
-  }
-);
 
-// Updated profile route with proper error handling
+
 app.get('/profile', (req, res) => {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ 
       success: false,
-      message: 'Not authenticated',
-      isAuthenticated: false
-    });
-  }
-
-  if (!req.user) {
-    return res.status(404).json({
-      success: false,
-      message: 'User not found',
-      isAuthenticated: false
+      message: 'Not authenticated'
     });
   }
 
   res.json({
     success: true,
-    isAuthenticated: true,
-    user: {
-      displayName: req.user.displayName,
-      email: req.user.email,
-      googleId: req.user.googleId
-    }
+    displayName: req.user.displayName,
+    email: req.user.email,
+    googleId: req.user.googleId
   });
 });
 
+// Update callback route
+app.get('/auth/google/callback', 
+  passport.authenticate('google', { failureRedirect: '/' }),
+  (req, res) => {
+    const frontendURL = process.env.NODE_ENV === 'production'
+      ? 'https://wenli.in'  
+      : 'http://localhost:5173';
+      
+    res.redirect(`${frontendURL}/profile`);
+  }
+);
 
 
 // Serve static files

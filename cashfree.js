@@ -1,13 +1,23 @@
+
+// Backend (Express Router - cashfree.js)
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const crypto = require('crypto');
 
+// In-memory storage to track processed orders
+const processedOrders = new Set();
+
 // Create Cashfree order
 router.post('/create-order', async (req, res) => {
   try {
-    const { amount, customer, product, quantity } = req.body;
+    const { amount, customer, product, quantity, processingKey } = req.body;
     
+    // Check if this processing key has already been used
+    if (processedOrders.has(processingKey)) {
+      return res.status(400).json({ error: 'Duplicate order request' });
+    }
+
     const orderData = {
       order_id: `ORDER-${Date.now()}`,
       order_amount: amount,
@@ -39,6 +49,9 @@ router.post('/create-order', async (req, res) => {
       }
     );
 
+    // Add processing key to prevent duplicate orders
+    processedOrders.add(processingKey);
+
     res.json({
       paymentLink: response.data.payment_link,
       orderId: orderData.order_id
@@ -55,7 +68,18 @@ router.post('/create-order', async (req, res) => {
 // Verify payment and create Shiprocket order
 router.post('/verify-and-create-order', async (req, res) => {
   try {
-    const { orderId, orderDetails } = req.body;
+    const { orderId, orderDetails, processingKey } = req.body;
+    
+    // Check if this processing key has already been used
+    if (!processedOrders.has(processingKey)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid or expired processing key' 
+      });
+    }
+
+    // Remove the processing key to prevent reuse
+    processedOrders.delete(processingKey);
     
     // First verify Cashfree payment
     const paymentResponse = await axios.get(
@@ -154,7 +178,7 @@ router.post('/verify-and-create-order', async (req, res) => {
   }
 });
 
-// Webhook handler
+// Webhook handler (remains the same)
 router.post('/webhook', async (req, res) => {
   try {
     const webhookSignature = req.headers['x-webhook-signature'];

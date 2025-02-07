@@ -3,7 +3,6 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const User = require('../models/User'); 
 
-// Initialize Google Strategy
 const initializeGoogleStrategy = () => {
   passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
@@ -11,6 +10,7 @@ const initializeGoogleStrategy = () => {
     callbackURL: process.env.NODE_ENV === 'production'
       ? 'https://wenlirapp11.onrender.com/auth/google/callback'
       : 'http://localhost:8000/auth/google/callback',
+    proxy: true
   }, async (accessToken, refreshToken, profile, done) => {
     try {
       const existingUser = await User.findOne({ googleId: profile.id });
@@ -56,29 +56,7 @@ const googleAuthRoutes = (app) => {
     })
   );
 
-  app.get('/auth/google/callback',
-    passport.authenticate('google', { failureRedirect: '/' }),
-    (req, res) => {
-      res.redirect('http://localhost:5173/profile');
-    }
-  );
 
-  app.get('/profile', async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: 'Not authenticated' });
-    }
-
-    const user = req.user;
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    res.json({
-      displayName: user.displayName,
-      email: user.email,
-      googleId: user.googleId,
-    });
-  });
 
   app.get('/logout', (req, res) => {
     req.logout((err) => {

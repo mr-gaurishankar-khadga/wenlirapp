@@ -28,12 +28,18 @@ const app = express();
 
 
 const corsOptions = {
-  origin: process.env.CLIENT_URL,
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://fancy-dragon-929394.netlify.app', 'https://wenlirapp11.onrender.com']
+    : 'http://localhost:5173',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   optionsSuccessStatus: 200
 };
+
+app.use(cors(corsOptions));
+
+
 
 app.use(cors(corsOptions));
 
@@ -69,25 +75,21 @@ const connectDB = async () => {
 connectDB();
 
 
+// Updated session configuration
 app.use(session({
   secret: process.env.SESSION_SECRET || generateRandomSecretKey(),
   resave: false,
   saveUninitialized: false,
   store: MongoStore.create({
     mongoUrl: process.env.MONGO_DB_CONNECTION_MY_DATABASE,
-    ttl: 24 * 60 * 60, 
-    autoRemove: 'native', 
-    crypto: {
-      secret: process.env.SESSION_SECRET || generateRandomSecretKey()
-    }
+    ttl: 24 * 60 * 60
   }),
-  
-  
   cookie: {
-    secure: process.env.NODE_ENV === 'production', 
+    secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    domain: process.env.NODE_ENV === 'production' ? 'https://fancy-dragon-929394.netlify.app' : undefined
   }
 }));
 
@@ -139,44 +141,45 @@ app.get('/auth/google',
     scope: ['profile', 'email'],
   })
 );
-
+// Updated callback route
 app.get('/auth/google/callback', 
   passport.authenticate('google', { failureRedirect: '/' }),
   (req, res) => {
-    try {
-      const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
-      res.redirect(`${CLIENT_URL}/profile`);
-    } catch (error) {
-      console.error('Error during callback:', error);
-      res.status(500).send('Internal Server Error');
-    }
+    const frontendURL = process.env.NODE_ENV === 'production'
+      ? 'https://fancy-dragon-929394.netlify.app'
+      : 'http://localhost:5173';
+    res.redirect(`${frontendURL}/profile`);
   }
 );
 
-
-
-app.get('/profile', async (req, res) => {
-  console.log('Profile route accessed');
-
+// Updated profile route with proper error handling
+app.get('/profile', (req, res) => {
   if (!req.isAuthenticated()) {
-    console.log('User not authenticated');
-    return res.status(401).json({ message: 'Not authenticated' });
+    return res.status(401).json({ 
+      success: false,
+      message: 'Not authenticated',
+      isAuthenticated: false
+    });
   }
 
-  const user = req.user; 
-
-  if (!user) {
-    console.log('User not found in session');
-    return res.status(404).json({ message: 'User not found' });
+  if (!req.user) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found',
+      isAuthenticated: false
+    });
   }
 
   res.json({
-    displayName: user.displayName,
-    email: user.email,
-    googleId: user.googleId,
+    success: true,
+    isAuthenticated: true,
+    user: {
+      displayName: req.user.displayName,
+      email: req.user.email,
+      googleId: req.user.googleId
+    }
   });
 });
-
 
 
 

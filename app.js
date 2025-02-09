@@ -140,18 +140,37 @@ app.get('/auth/google',
 );
 
 
-// Simplified profile route
+// In app.js, update your profile route:
+
 app.get('/profile', async (req, res) => {
   try {
-    // Check for JWT token
+    // Get token from Authorization header
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.split(' ')[1];
 
+    // If no token found, check for session
+    if (!token && !req.isAuthenticated()) {
+      return res.status(401).json({
+        success: false,
+        message: 'Please log in to access your profile gshankar'
+      });
+    }
+
+    let user;
+
+    // If token exists, verify JWT
     if (token) {
-      // JWT authentication
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-      const user = await AllSignup.findById(decoded.userId);
-      if (user) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || generateRandomSecretKey());
+        user = await AllSignup.findById(decoded.userId);
+        
+        if (!user) {
+          return res.status(401).json({
+            success: false,
+            message: 'User not found'
+          });
+        }
+
         return res.json({
           success: true,
           user: {
@@ -160,10 +179,15 @@ app.get('/profile', async (req, res) => {
             role: user.role || 'user'
           }
         });
+      } catch (jwtError) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token'
+        });
       }
     }
 
-    // Check for Google authentication
+    // If authenticated via session (Google OAuth)
     if (req.isAuthenticated()) {
       return res.json({
         success: true,
@@ -175,10 +199,6 @@ app.get('/profile', async (req, res) => {
       });
     }
 
-    res.status(401).json({ 
-      success: false,
-      message: 'Not authenticated'
-    });
   } catch (error) {
     console.error('Profile access error:', error);
     res.status(500).json({

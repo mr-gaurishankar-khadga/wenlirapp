@@ -47,27 +47,16 @@ passport.deserializeUser(async (id, done) => {
 });
 
 // Authentication routes
-const googleAuthRoutes = (app) => {
-  app.get('/auth/google',
-    passport.authenticate('google', {
-      scope: ['profile', 'email'],
-    })
-  );
+// const googleAuthRoutes = (app) => {
+//   app.get('/auth/google',
+//     passport.authenticate('google', {
+//       scope: ['profile', 'email'],
+//     })
+//   );
 
-
-
-  app.get('/logout', (req, res) => {
-    req.logout((err) => {
-      if (err) {
-        console.error('Logout error:', err);
-        return res.redirect('/');
-      }
-      res.redirect('/');
-    });
-  });
-};
+// };
 
 module.exports = {
   initializeGoogleStrategy,
-  googleAuthRoutes
+  // googleAuthRoutes
 };

@@ -16,9 +16,11 @@ const slideRoutes = require('./routes/slideRoutes');
 const userRoutes = require('./routes/userRoutes');
 const messageRoutes = require('./routes/messageRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
-
+const nodemailer = require('nodemailer');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const cashfreeRoutes = require('./cashfree');
-
+const AllSignup = require('./models/signupModel');
 const shiprocketRoutes = require('./routes/shiprocketRoutes');
 
 
@@ -141,33 +143,74 @@ app.get('/auth/google',
 );
 
 
-app.get('/profile', (req, res) => {
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ 
+// Simplified profile route
+app.get('/profile', async (req, res) => {
+  try {
+    // Check for JWT token
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (token) {
+      // JWT authentication
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+      const user = await AllSignup.findById(decoded.userId);
+      if (user) {
+        return res.json({
+          success: true,
+          user: {
+            firstname: user.firstname,
+            email: user.email,
+            role: user.role || 'user'
+          }
+        });
+      }
+    }
+
+    // Check for Google authentication
+    if (req.isAuthenticated()) {
+      return res.json({
+        success: true,
+        user: {
+          displayName: req.user.displayName,
+          email: req.user.email,
+          googleId: req.user.googleId
+        }
+      });
+    }
+
+    res.status(401).json({ 
       success: false,
       message: 'Not authenticated'
     });
+  } catch (error) {
+    console.error('Profile access error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error accessing profile'
+    });
   }
-
-  res.json({
-    success: true,
-    displayName: req.user.displayName,
-    email: req.user.email,
-    googleId: req.user.googleId
-  });
 });
+
+
+
+
 
 // Update callback route
 app.get('/auth/google/callback', 
   passport.authenticate('google', { failureRedirect: '/' }),
   (req, res) => {
     const frontendURL = process.env.NODE_ENV === 'production'
-      ? 'https://wenli.in'  
+      ? 'https://fancy-dragon-929394.netlify.app'  
       : 'http://localhost:5173';
       
     res.redirect(`${frontendURL}/profile`);
   }
 );
+
+
+
+
+
 
 
 // Serve static files
@@ -268,6 +311,28 @@ app.get('/api/get-slides', async (req, res) => {
 
 
 
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: 'Access denied. No token provided.'
+    });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || generateRandomSecretKey());
+    req.user = decoded;
+    next();
+  } catch (error) {
+    res.status(403).json({
+      success: false,
+      message: 'Invalid token.'
+    });
+  }
+};
 
 
 
@@ -276,10 +341,163 @@ app.get('/api/get-slides', async (req, res) => {
 
 
 
+// Email configuration
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: 'wenlifashions@gmail.com',
+    pass: 'uwoh jtud qabp ynjf',
+  }
+});
+
+// Routes
+app.post('/api/auth/signup', async (req, res) => {
+  try {
+    const { firstname, email, password } = req.body;
+
+    // Check if user exists
+    const existingUser = await AllSignup.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Email already registered' 
+      });
+    }
+
+    // Generate OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Create user
+    const user = new AllSignup({
+      firstname,
+      email,
+      password,
+      otp,
+      otpExpiry
+    });
+
+    await user.save();
+
+    // Send OTP email
+    try {
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: 'Email Verification OTP',
+        html: `
+          <h1>Email Verification</h1>
+          <p>Your OTP for verification is: <strong>${otp}</strong></p>
+          <p>This OTP will expire in 10 minutes.</p>
+        `
+      });
+    } catch (emailError) {
+      console.error('Email sending error:', emailError);
+      // Even if email fails, we'll return success since user is created
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Registration successful! Please check your email for OTP.'
+    });
+
+  } catch (error) {
+    console.error('Signup error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Registration failed. Please try again.'
+    });
+  }
+});
+
+app.post('/api/auth/verify-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const user = await AllSignup.findOne({
+      email,
+      otp,
+      otpExpiry: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired OTP'
+      });
+    }
+
+    // Update user verification status
+    user.isVerified = true;
+    user.otp = undefined;
+    user.otpExpiry = undefined;
+    await user.save();
+
+    // Generate JWT
+    const token = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_SECRET || generateRandomSecretKey(),
+      { expiresIn: '30d' }
+    );
+
+    res.json({
+      success: true,
+      message: 'Email verified successfully',
+      token
+    });
+
+  } catch (error) {
+    console.error('OTP verification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Verification failed. Please try again.'
+    });
+  }
+});
 
 
+// Simplified login route
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { firstname, password } = req.body;
+    const user = await AllSignup.findOne({ firstname });
 
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid username or password'
+      });
+    }
 
+    // Generate token
+    const token = jwt.sign(
+      { 
+        userId: user._id,
+        firstname: user.firstname,
+        email: user.email
+      },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '30d' }
+    );
+
+    res.json({
+      success: true,
+      message: 'Login successful',
+      token,
+      user: {
+        firstname: user.firstname,
+        email: user.email
+      }
+    });
+
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Login failed'
+    });
+  }
+});
 
 
 

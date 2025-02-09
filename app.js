@@ -31,7 +31,7 @@ const app = express();
 
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://fancy-dragon-929394.netlify.app', 'https://wenlirapp11.onrender.com']
+    ? 'https://fancy-dragon-929394.netlify.app'
     : 'http://localhost:5173',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

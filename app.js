@@ -31,15 +31,13 @@ const app = express();
 
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://fancy-dragon-929394.netlify.app']
+    ? ['https://fancy-dragon-929394.netlify.app', 'https://wenlirapp11.onrender.com']
     : 'http://localhost:5173',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   optionsSuccessStatus: 200
 };
-
-app.use(cors(corsOptions));
 
 
 
@@ -311,6 +309,68 @@ app.get('/api/get-slides', async (req, res) => {
 
 
 
+
+
+
+
+// Simplified login route
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { firstname, password } = req.body;
+    const user = await AllSignup.findOne({ firstname });
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid username or password'
+      });
+    }
+
+    // Generate token
+    const token = jwt.sign(
+      { 
+        userId: user._id,
+        firstname: user.firstname,
+        email: user.email
+      },
+      process.env.JWT_SECRET || generateRandomSecretKey(),
+      { expiresIn: '30d' }
+    );
+
+    res.json({
+      success: true,
+      message: 'Login successful',
+      token,
+      user: {
+        firstname: user.firstname,
+        email: user.email
+      }
+    });
+
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Login failed'
+    });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -456,48 +516,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
 });
 
 
-// Simplified login route
-app.post('/api/auth/login', async (req, res) => {
-  try {
-    const { firstname, password } = req.body;
-    const user = await AllSignup.findOne({ firstname });
 
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid username or password'
-      });
-    }
-
-    // Generate token
-    const token = jwt.sign(
-      { 
-        userId: user._id,
-        firstname: user.firstname,
-        email: user.email
-      },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '30d' }
-    );
-
-    res.json({
-      success: true,
-      message: 'Login successful',
-      token,
-      user: {
-        firstname: user.firstname,
-        email: user.email
-      }
-    });
-
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Login failed'
-    });
-  }
-});
 
 
 

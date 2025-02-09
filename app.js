@@ -29,16 +29,15 @@ const shiprocketRoutes = require('./routes/shiprocketRoutes');
 const app = express();
 
 
+// In your app.js, update just the CORS configuration:
+
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? 'https://fancy-dragon-929394.netlify.app'
-    : 'http://localhost:5173',
+  origin: ['http://localhost:5173', 'https://fancy-dragon-929394.netlify.app'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   optionsSuccessStatus: 200
 };
-
 
 
 app.use(cors(corsOptions));

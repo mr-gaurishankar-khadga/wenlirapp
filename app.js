@@ -312,8 +312,7 @@ app.get('/api/get-slides', async (req, res) => {
 
 
 
-
-// Simplified login route
+// Move your login route here (from the bottom of app.js)
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { firstname, password } = req.body;

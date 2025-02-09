@@ -32,7 +32,7 @@ const app = express();
 // In your app.js, update just the CORS configuration:
 
 const corsOptions = {
-  origin: ['http://localhost:5173', 'https://fancy-dragon-929394.netlify.app'],
+  origin: 'https://fancy-dragon-929394.netlify.app',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -332,7 +332,7 @@ app.get('/api/get-slides', async (req, res) => {
 
 
 // Move your login route here (from the bottom of app.js)
-app.post('/login', async (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   try {
     const { firstname, password } = req.body;
     const user = await AllSignup.findOne({ firstname });
@@ -429,7 +429,7 @@ const transporter = nodemailer.createTransport({
 });
 
 // Routes
-app.post('/signup', async (req, res) => {
+app.post('/api/auth/signup', async (req, res) => {
   try {
     const { firstname, email, password } = req.body;
 
@@ -488,7 +488,7 @@ app.post('/signup', async (req, res) => {
   }
 });
 
-app.post('/verify-otp', async (req, res) => {
+app.post('/api/auth/verify-otp', async (req, res) => {
   try {
     const { email, otp } = req.body;
 

@@ -29,20 +29,19 @@ const slidesController = require('./slidesController');
 const app = express();
 
 
-
-app.use((req, res, next) => {
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
-  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-  next();
-});
-
-
 const corsOptions = {
-  origin: ['https://fancy-dragon-929394.netlify.app'],
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://fancy-dragon-929394.netlify.app']
+    : 'http://localhost:5173',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200
 };
+
+app.use(cors(corsOptions));
+
+
 
 app.use(cors(corsOptions));
 
@@ -78,7 +77,6 @@ const connectDB = async () => {
 connectDB();
 
 
-// Update your session configuration
 app.use(session({
   secret: process.env.SESSION_SECRET || generateRandomSecretKey(),
   resave: false,
@@ -91,8 +89,7 @@ app.use(session({
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : undefined
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
   }
 }));
 
@@ -166,22 +163,15 @@ app.get('/profile', (req, res) => {
 });
 
 
-
-// 3. Update your backend Google callback route in app.js
+// Update callback route
 app.get('/auth/google/callback', 
   passport.authenticate('google', { failureRedirect: '/' }),
   (req, res) => {
     const frontendURL = process.env.NODE_ENV === 'production'
-      ? 'https://fancy-dragon-929394.netlify.app'
+      ? 'https://fancy-dragon-929394.netlify.app'  
       : 'http://localhost:5173';
-
-    // Send a message to the opener window
-    res.send(`
-      <script>
-        window.opener.postMessage({ type: 'AUTH_SUCCESS' }, '${frontendURL}');
-        window.close();
-      </script>
-    `);
+      
+    res.redirect(`${frontendURL}/profile`);
   }
 );
 

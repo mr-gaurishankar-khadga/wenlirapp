@@ -3,12 +3,13 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const User = require('../models/User'); 
 
-// 2. Update your auth/googleAuth.js
 const initializeGoogleStrategy = () => {
   passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: 'https://wenlirapp11.onrender.com/auth/google/callback',
+    callbackURL: process.env.NODE_ENV === 'production'
+      ? 'https://wenlirapp11.onrender.com/auth/google/callback'
+      : 'http://localhost:8000/auth/google/callback',
     proxy: true
   }, async (accessToken, refreshToken, profile, done) => {
     try {
@@ -26,7 +27,6 @@ const initializeGoogleStrategy = () => {
 
       done(null, newUser);
     } catch (error) {
-      console.error('Google Strategy Error:', error);
       done(error, null);
     }
   }));

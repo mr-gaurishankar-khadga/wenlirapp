@@ -8,7 +8,7 @@ const MongoStore = require('connect-mongo');
 const passport = require('passport');
 const path = require('path');
 const crypto = require('crypto');
-const { initializeGoogleStrategy, googleAuthRoutes } = require('./auth/googleAuth');
+const { initializeGoogleStrategy,initializeJwtStrategy, setupGoogleAuthRoutes } = require('./auth/googleAuth');
 const authRoutes = require('./routes/authRoutes');
 const productRoutes = require('./routes/productRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
@@ -97,8 +97,8 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 initializeGoogleStrategy();
-
-
+initializeJwtStrategy();
+setupGoogleAuthRoutes(app);
 
 
 

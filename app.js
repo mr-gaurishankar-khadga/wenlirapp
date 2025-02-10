@@ -174,30 +174,10 @@ app.get('/profile', (req, res) => {
 
 
 
-// 3. Update your backend Google callback route in app.js
-// Update Google callback route
 app.get('/auth/google/callback', 
   passport.authenticate('google', { failureRedirect: '/' }),
   (req, res) => {
-    const frontendURL = 'https://fancy-dragon-929394.netlify.app';
-    
-    // Set a cookie to indicate authentication
-    res.cookie('isAuthenticated', 'true', {
-      secure: true,
-      httpOnly: false,
-      sameSite: 'none',
-      domain: '.onrender.com'
-    });
-
-    res.send(`
-      <script>
-        window.opener.postMessage({ 
-          type: 'AUTH_SUCCESS',
-          user: ${JSON.stringify(req.user)}
-        }, '${frontendURL}');
-        window.close();
-      </script>
-    `);
+    res.redirect('https://fancy-dragon-929394.netlify.app/profile');
   }
 );
 

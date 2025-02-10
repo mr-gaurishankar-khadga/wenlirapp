@@ -89,7 +89,11 @@ const initializeGoogleStrategy = () => {
 
 
 
-// Updated routes for the backend
+
+
+
+// In your googleAuth.js file, update the setupGoogleAuthRoutes function:
+
 const setupGoogleAuthRoutes = (app) => {
   app.get('/auth/google',
     passport.authenticate('google', {
@@ -97,20 +101,41 @@ const setupGoogleAuthRoutes = (app) => {
     })
   );
 
+  // Remove the duplicate callback route and keep only one
   app.get('/auth/google/callback',
     passport.authenticate('google', { session: false }),
     (req, res) => {
-      const token = req.user.token;
-      const frontendURL = process.env.NODE_ENV === 'production'
-        ? 'https://wenlirapp11.onrender.com'
-        : 'http://localhost:5173';
+      try {
+        const token = req.user.token;
+        const frontendURL = process.env.NODE_ENV === 'production'
+          ? 'https://fancy-dragon-929394.netlify.app'
+          : 'http://localhost:5173';
 
-      // Redirect with token
-      res.redirect(`${frontendURL}/auth/callback?token=${token}`);
+        // Add the specific callback route handler
+        res.redirect(`${frontendURL}/auth/callback?token=${token}`);
+      } catch (error) {
+        console.error('Error during redirection:', error);
+        res.status(500).send('Internal Server Error');
+      }
     }
   );
 
-  // Profile endpoint
+  // Add the explicit callback route handler
+  app.get('/auth/callback', (req, res) => {
+    const { token } = req.query;
+    if (!token) {
+      return res.status(400).json({ error: 'Token is required' });
+    }
+    
+    // You can add token verification here if needed
+    res.json({ 
+      success: true,
+      message: 'Authentication successful',
+      token 
+    });
+  });
+
+  // Keep your profile endpoint
   app.get('/profile', 
     passport.authenticate('jwt', { session: false }),
     (req, res) => {
@@ -125,25 +150,6 @@ const setupGoogleAuthRoutes = (app) => {
       });
     }
   );
-
-  app.get('/auth/google/callback',
-    passport.authenticate('google', { failureRedirect: '/' }),
-    (req, res) => {
-      try {
-        const frontendURL = process.env.NODE_ENV === 'production'
-          ? 'https://fancy-dragon-929394.netlify.app'
-          : 'http://localhost:5173';
-  
-        // Attach token to the redirect URL (if applicable)
-        const token = req.user && req.user.token ? `?token=${req.user.token}` : '';
-        res.redirect(`${frontendURL}/profile${token}`);
-      } catch (error) {
-        console.error('Error during redirection:', error);
-        res.status(500).send('Internal Server Error');
-      }
-    }
-  );
-  
 };
 
 module.exports = {

@@ -160,17 +160,24 @@ app.get('/profile', (req, res) => {
 });
 
 
-// Update callback route
-app.get('/auth/google/callback', 
+app.get('/auth/google/callback',
   passport.authenticate('google', { failureRedirect: '/' }),
   (req, res) => {
-    const frontendURL = process.env.NODE_ENV === 'production'
-      ? 'https://fancy-dragon-929394.netlify.app'  
-      : 'http://localhost:5173';
-      
-    res.redirect(`${frontendURL}/profile`);
+    try {
+      const frontendURL = process.env.NODE_ENV === 'production'
+        ? 'https://fancy-dragon-929394.netlify.app'
+        : 'http://localhost:5173';
+
+      // Attach token to the redirect URL (if applicable)
+      const token = req.user && req.user.token ? `?token=${req.user.token}` : '';
+      res.redirect(`${frontendURL}/profile${token}`);
+    } catch (error) {
+      console.error('Error during redirection:', error);
+      res.status(500).send('Internal Server Error');
+    }
   }
 );
+
 
 
 

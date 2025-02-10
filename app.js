@@ -30,10 +30,13 @@ const app = express();
 
 
 const corsOptions = {
-  origin: ['https://fancy-dragon-929394.netlify.app'],
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://fancy-dragon-929394.netlify.app']
+    : 'http://localhost:5173',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200
 };
 
 app.use(cors(corsOptions));
@@ -71,21 +74,21 @@ const connectDB = async () => {
 connectDB();
 
 
-// Update session configuration
 app.use(session({
   secret: process.env.SESSION_SECRET || generateRandomSecretKey(),
   resave: false,
   saveUninitialized: false,
   store: MongoStore.create({
-    mongoUrl: process.env.MONGO_DB_CONNECTION_MY_DATABASE
+    mongoUrl: process.env.MONGO_DB_CONNECTION_MY_DATABASE,
+    ttl: 24 * 60 * 60
   }),
   cookie: {
-    secure: true,
-    sameSite: 'none',
-    maxAge: 24 * 60 * 60 * 1000
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000,
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
   }
 }));
-
 
 
 
@@ -140,38 +143,32 @@ app.get('/auth/google',
 );
 
 
-// In your app.js
-
 app.get('/profile', (req, res) => {
-  // Check if user is authenticated
   if (!req.isAuthenticated()) {
-    return res.status(401).json({
+    return res.status(401).json({ 
       success: false,
       message: 'Not authenticated'
     });
   }
 
-  // If authenticated, return user data
   res.json({
     success: true,
     displayName: req.user.displayName,
     email: req.user.email,
-    // Add any other user data you need
+    googleId: req.user.googleId
   });
 });
 
-app.get('/auth/google/callback',
-  passport.authenticate('google', { 
-    failureRedirect: 'https://fancy-dragon-929394.netlify.app/login'
-  }),
+
+// Update callback route
+app.get('/auth/google/callback', 
+  passport.authenticate('google', { failureRedirect: '/' }),
   (req, res) => {
-    // Save user in session
-    req.session.save((err) => {
-      if (err) {
-        console.error('Session save error:', err);
-      }
-      res.redirect('https://fancy-dragon-929394.netlify.app/profile');
-    });
+    const frontendURL = process.env.NODE_ENV === 'production'
+      ? 'https://fancy-dragon-929394.netlify.app'  
+      : 'http://localhost:5173';
+      
+    res.redirect(`${frontendURL}/profile`);
   }
 );
 

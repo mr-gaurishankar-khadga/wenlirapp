@@ -29,9 +29,17 @@ const slidesController = require('./slidesController');
 const app = express();
 
 
+
+app.use((req, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+  next();
+});
+
+
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://fancy-dragon-929394.netlify.app', 'https://wenlirapp11.onrender.com']
+    ? process.env.CLIENT_URL
     : 'http://localhost:5173',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -164,15 +172,21 @@ app.get('/profile', (req, res) => {
 
 
 
-// Update callback route
+// 3. Update your backend Google callback route in app.js
 app.get('/auth/google/callback', 
   passport.authenticate('google', { failureRedirect: '/' }),
   (req, res) => {
     const frontendURL = process.env.NODE_ENV === 'production'
-      ? 'https://fancy-dragon-929394.netlify.app'  
+      ? 'https://fancy-dragon-929394.netlify.app'
       : 'http://localhost:5173';
-      
-    res.redirect(`${frontendURL}/profile`);
+
+    // Send a message to the opener window
+    res.send(`
+      <script>
+        window.opener.postMessage({ type: 'AUTH_SUCCESS' }, '${frontendURL}');
+        window.close();
+      </script>
+    `);
   }
 );
 

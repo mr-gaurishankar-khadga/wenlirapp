@@ -30,19 +30,14 @@ const app = express();
 
 
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://fancy-dragon-929394.netlify.app', 'https://wenlirapp11.onrender.com']
-    : 'http://localhost:5173',
+  origin: ['https://fancy-dragon-929394.netlify.app'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  optionsSuccessStatus: 200
+  allowedHeaders: ['Content-Type', 'Authorization']
 };
 
-
-
-
 app.use(cors(corsOptions));
+
 
 
 app.use(express.json({ limit: '50mb' }));
@@ -76,22 +71,21 @@ const connectDB = async () => {
 connectDB();
 
 
+// Update session configuration
 app.use(session({
   secret: process.env.SESSION_SECRET || generateRandomSecretKey(),
   resave: false,
   saveUninitialized: false,
   store: MongoStore.create({
-    mongoUrl: process.env.MONGO_DB_CONNECTION_MY_DATABASE,
-    ttl: 24 * 60 * 60
+    mongoUrl: process.env.MONGO_DB_CONNECTION_MY_DATABASE
   }),
   cookie: {
-    secure: process.env.NODE_ENV === 'production', 
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : undefined
+    secure: true,
+    sameSite: 'none',
+    maxAge: 24 * 60 * 60 * 1000
   }
 }));
+
 
 
 
@@ -147,40 +141,33 @@ app.get('/auth/google',
 
 
 app.get('/profile', (req, res) => {
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ 
+  if (req.session && req.session.user) {
+    res.json({
+      success: true,
+      displayName: req.session.user.displayName,
+      email: req.session.user.email
+    });
+  } else {
+    res.status(401).json({
       success: false,
       message: 'Not authenticated'
     });
   }
-
-  res.json({
-    success: true,
-    displayName: req.user.displayName,
-    email: req.user.email,
-    googleId: req.user.googleId
-  });
 });
 
 
-// Update Google callback URL
+// Update Google OAuth callback
 app.get('/auth/google/callback', 
   passport.authenticate('google', { 
-    failureRedirect: process.env.NODE_ENV === 'production' 
-      ? 'https://fancy-dragon-929394.netlify.app/login'
-      : 'http://localhost:5173/login'
+    failureRedirect: 'https://fancy-dragon-929394.netlify.app/login'
   }),
   (req, res) => {
-    const frontendURL = process.env.NODE_ENV === 'production'
-      ? 'https://fancy-dragon-929394.netlify.app'
-      : 'http://localhost:5173';
-    
-    // Set a session cookie
-    req.session.isAuthenticated = true;
-    
-    res.redirect(`${frontendURL}/profile`);
+    // Ensure user is set in session
+    req.session.user = req.user;
+    res.redirect('https://fancy-dragon-929394.netlify.app/profile');
   }
 );
+
 
 
 

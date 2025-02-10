@@ -102,7 +102,7 @@ const setupGoogleAuthRoutes = (app) => {
     (req, res) => {
       const token = req.user.token;
       const frontendURL = process.env.NODE_ENV === 'production'
-        ? 'https://your-frontend-domain.com'
+        ? 'https://wenlirapp11.onrender.com'
         : 'http://localhost:5173';
 
       // Redirect with token

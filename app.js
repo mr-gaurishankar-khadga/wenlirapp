@@ -29,20 +29,19 @@ const slidesController = require('./slidesController');
 const app = express();
 
 
-
-app.use((req, res, next) => {
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
-  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-  next();
-});
-
-
 const corsOptions = {
-  origin: ['https://fancy-dragon-929394.netlify.app'],
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://fancy-dragon-929394.netlify.app']
+    : 'http://localhost:5173',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200
 };
+
+app.use(cors(corsOptions));
+
+
 
 app.use(cors(corsOptions));
 
@@ -78,7 +77,6 @@ const connectDB = async () => {
 connectDB();
 
 
-// Update session configuration
 app.use(session({
   secret: process.env.SESSION_SECRET || generateRandomSecretKey(),
   resave: false,
@@ -88,14 +86,12 @@ app.use(session({
     ttl: 24 * 60 * 60
   }),
   cookie: {
-    secure: true, // Important for production HTTPS
+    secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    sameSite: 'none', // Required for cross-domain cookies
     maxAge: 24 * 60 * 60 * 1000,
-    domain: '.onrender.com' // Adjust if needed for your domain
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
   }
 }));
-
 
 
 
@@ -149,12 +145,9 @@ app.get('/auth/google',
   })
 );
 
-// Add this route to check authentication status
+
 app.get('/profile', (req, res) => {
-  console.log('Session:', req.session);
-  console.log('User:', req.user);
-  
-  if (!req.session || !req.user) {
+  if (!req.isAuthenticated()) {
     return res.status(401).json({ 
       success: false,
       message: 'Not authenticated'
@@ -163,24 +156,24 @@ app.get('/profile', (req, res) => {
 
   res.json({
     success: true,
-    user: {
-      displayName: req.user.displayName,
-      email: req.user.email,
-      googleId: req.user.googleId
-    }
+    displayName: req.user.displayName,
+    email: req.user.email,
+    googleId: req.user.googleId
   });
 });
 
 
-
-
+// Update callback route
 app.get('/auth/google/callback', 
   passport.authenticate('google', { failureRedirect: '/' }),
   (req, res) => {
-    res.redirect('https://fancy-dragon-929394.netlify.app/profile');
+    const frontendURL = process.env.NODE_ENV === 'production'
+      ? 'https://fancy-dragon-929394.netlify.app'  
+      : 'http://localhost:5173';
+      
+    res.redirect(`${frontendURL}/profile`);
   }
 );
-
 
 
 

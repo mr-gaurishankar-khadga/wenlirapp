@@ -140,34 +140,40 @@ app.get('/auth/google',
 );
 
 
+// In your app.js
+
 app.get('/profile', (req, res) => {
-  if (req.session && req.session.user) {
-    res.json({
-      success: true,
-      displayName: req.session.user.displayName,
-      email: req.session.user.email
-    });
-  } else {
-    res.status(401).json({
+  // Check if user is authenticated
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({
       success: false,
       message: 'Not authenticated'
     });
   }
+
+  // If authenticated, return user data
+  res.json({
+    success: true,
+    displayName: req.user.displayName,
+    email: req.user.email,
+    // Add any other user data you need
+  });
 });
 
-
-// Update Google OAuth callback
-app.get('/auth/google/callback', 
+app.get('/auth/google/callback',
   passport.authenticate('google', { 
     failureRedirect: 'https://fancy-dragon-929394.netlify.app/login'
   }),
   (req, res) => {
-    // Ensure user is set in session
-    req.session.user = req.user;
-    res.redirect('https://fancy-dragon-929394.netlify.app/profile');
+    // Save user in session
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+      }
+      res.redirect('https://fancy-dragon-929394.netlify.app/profile');
+    });
   }
 );
-
 
 
 

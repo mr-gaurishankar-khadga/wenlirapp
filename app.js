@@ -38,16 +38,11 @@ app.use((req, res, next) => {
 
 
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? process.env.CLIENT_URL
-    : 'http://localhost:5173',
+  origin: ['https://fancy-dragon-929394.netlify.app'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  optionsSuccessStatus: 200
 };
-
-
 
 app.use(cors(corsOptions));
 
@@ -83,7 +78,7 @@ const connectDB = async () => {
 connectDB();
 
 
-// Update your session configuration
+// Update session configuration
 app.use(session({
   secret: process.env.SESSION_SECRET || generateRandomSecretKey(),
   resave: false,
@@ -93,13 +88,14 @@ app.use(session({
     ttl: 24 * 60 * 60
   }),
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: true, // Important for production HTTPS
     httpOnly: true,
+    sameSite: 'none', // Required for cross-domain cookies
     maxAge: 24 * 60 * 60 * 1000,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : undefined
+    domain: '.onrender.com' // Adjust if needed for your domain
   }
 }));
+
 
 
 
@@ -153,9 +149,12 @@ app.get('/auth/google',
   })
 );
 
-
+// Add this route to check authentication status
 app.get('/profile', (req, res) => {
-  if (!req.isAuthenticated()) {
+  console.log('Session:', req.session);
+  console.log('User:', req.user);
+  
+  if (!req.session || !req.user) {
     return res.status(401).json({ 
       success: false,
       message: 'Not authenticated'
@@ -164,31 +163,44 @@ app.get('/profile', (req, res) => {
 
   res.json({
     success: true,
-    displayName: req.user.displayName,
-    email: req.user.email,
-    googleId: req.user.googleId
+    user: {
+      displayName: req.user.displayName,
+      email: req.user.email,
+      googleId: req.user.googleId
+    }
   });
 });
 
 
 
+
 // 3. Update your backend Google callback route in app.js
+// Update Google callback route
 app.get('/auth/google/callback', 
   passport.authenticate('google', { failureRedirect: '/' }),
   (req, res) => {
-    const frontendURL = process.env.NODE_ENV === 'production'
-      ? 'https://fancy-dragon-929394.netlify.app'
-      : 'http://localhost:5173';
+    const frontendURL = 'https://fancy-dragon-929394.netlify.app';
+    
+    // Set a cookie to indicate authentication
+    res.cookie('isAuthenticated', 'true', {
+      secure: true,
+      httpOnly: false,
+      sameSite: 'none',
+      domain: '.onrender.com'
+    });
 
-    // Send a message to the opener window
     res.send(`
       <script>
-        window.opener.postMessage({ type: 'AUTH_SUCCESS' }, '${frontendURL}');
+        window.opener.postMessage({ 
+          type: 'AUTH_SUCCESS',
+          user: ${JSON.stringify(req.user)}
+        }, '${frontendURL}');
         window.close();
       </script>
     `);
   }
 );
+
 
 
 

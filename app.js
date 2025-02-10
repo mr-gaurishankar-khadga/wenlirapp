@@ -22,22 +22,23 @@ const jwt = require('jsonwebtoken');
 const cashfreeRoutes = require('./cashfree');
 const AllSignup = require('./models/signupModel');
 const shiprocketRoutes = require('./routes/shiprocketRoutes');
-
+const slidesController = require('./slidesController');
 
 
 
 const app = express();
 
 
-// In your app.js, update just the CORS configuration:
-
 const corsOptions = {
-  origin: 'https://fancy-dragon-929394.netlify.app',
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://fancy-dragon-929394.netlify.app', 'https://wenlirapp11.onrender.com']
+    : 'http://localhost:5173',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   optionsSuccessStatus: 200
 };
+
 
 
 app.use(cors(corsOptions));
@@ -74,6 +75,7 @@ const connectDB = async () => {
 connectDB();
 
 
+// Update your session configuration
 app.use(session({
   secret: process.env.SESSION_SECRET || generateRandomSecretKey(),
   resave: false,
@@ -86,7 +88,8 @@ app.use(session({
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : undefined
   }
 }));
 
@@ -122,11 +125,14 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/', cashfreeRoutes);
 app.use('/api/cashfree', cashfreeRoutes);
 app.use('/api/shiprocket', shiprocketRoutes);
+app.use('/api', slidesController);
 
 
 
 const router = express.Router();
 module.exports = router;
+
+
 
 
 
@@ -140,75 +146,21 @@ app.get('/auth/google',
 );
 
 
-// In app.js, update your profile route:
-
-app.get('/profile', async (req, res) => {
-  try {
-    // Get token from Authorization header
-    const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(' ')[1];
-
-    // If no token found, check for session
-    if (!token && !req.isAuthenticated()) {
-      return res.status(401).json({
-        success: false,
-        message: 'Please log in to access your profile gshankar'
-      });
-    }
-
-    let user;
-
-    // If token exists, verify JWT
-    if (token) {
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || generateRandomSecretKey());
-        user = await AllSignup.findById(decoded.userId);
-        
-        if (!user) {
-          return res.status(401).json({
-            success: false,
-            message: 'User not found'
-          });
-        }
-
-        return res.json({
-          success: true,
-          user: {
-            firstname: user.firstname,
-            email: user.email,
-            role: user.role || 'user'
-          }
-        });
-      } catch (jwtError) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token'
-        });
-      }
-    }
-
-    // If authenticated via session (Google OAuth)
-    if (req.isAuthenticated()) {
-      return res.json({
-        success: true,
-        user: {
-          displayName: req.user.displayName,
-          email: req.user.email,
-          googleId: req.user.googleId
-        }
-      });
-    }
-
-  } catch (error) {
-    console.error('Profile access error:', error);
-    res.status(500).json({
+app.get('/profile', (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ 
       success: false,
-      message: 'Error accessing profile'
+      message: 'Not authenticated'
     });
   }
+
+  res.json({
+    success: true,
+    displayName: req.user.displayName,
+    email: req.user.email,
+    googleId: req.user.googleId
+  });
 });
-
-
 
 
 
@@ -250,69 +202,6 @@ app.get('/health', (req, res) => {
 
 
 
-// MongoDB Schema for Text Slides
-const slideSchema = new mongoose.Schema({
-  slides: [
-    {
-      text: { type: String, required: true },
-      order: { type: Number, required: true },
-    },
-  ],
-});
-
-const Slide = mongoose.model('TextSlide', slideSchema);
-
-// Route to upload slides
-app.post('/api/upload-slides', async (req, res) => {
-  try {
-    const { slides } = req.body;
-
-    // Check if slides array is not empty
-    if (!slides || slides.length === 0) {
-      return res.status(400).json({ message: 'Please provide slides to upload' });
-    }
-
-    // Validate each slide
-    const invalidSlides = slides.filter(
-      (slide) => !slide.text || slide.order === undefined
-    );
-    if (invalidSlides.length > 0) {
-      return res.status(400).json({ message: 'All slides must have text and order' });
-    }
-
-    // Sort slides by order to ensure correct sequence
-    const sortedSlides = slides.sort((a, b) => a.order - b.order);
-
-    // Store slides as a single document
-    const newSlide = new Slide({
-      slides: sortedSlides,
-    });
-
-    await newSlide.save();
-
-    res.status(200).json({ message: 'Slides uploaded successfully', newSlide });
-  } catch (error) {
-    console.error('Error uploading slides:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Route to fetch slides
-app.get('/api/get-slides', async (req, res) => {
-  try {
-    const slides = await Slide.find();
-    if (slides.length === 0) {
-      return res.status(404).json({ message: 'No slides found' });
-    }
-    
-    // Return the most recent slide document
-    const latestSlides = slides[slides.length - 1].slides;
-    res.status(200).json(latestSlides);
-  } catch (error) {
-    console.error('Error fetching slides:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
 
 
 
@@ -321,58 +210,6 @@ app.get('/api/get-slides', async (req, res) => {
 
 
 
-
-
-
-
-
-
-
-
-
-
-// Move your login route here (from the bottom of app.js)
-app.post('/api/auth/login', async (req, res) => {
-  try {
-    const { firstname, password } = req.body;
-    const user = await AllSignup.findOne({ firstname });
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid username or password'
-      });
-    }
-
-    // Generate token
-    const token = jwt.sign(
-      { 
-        userId: user._id,
-        firstname: user.firstname,
-        email: user.email
-      },
-      process.env.JWT_SECRET || generateRandomSecretKey(),
-      { expiresIn: '30d' }
-    );
-
-    res.json({
-      success: true,
-      message: 'Login successful',
-      token,
-      user: {
-        firstname: user.firstname,
-        email: user.email
-      }
-    });
-
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Login failed'
-    });
-  }
-});
 
 
 
@@ -428,12 +265,12 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// Routes
+
 app.post('/api/auth/signup', async (req, res) => {
   try {
     const { firstname, email, password } = req.body;
 
-    // Check if user exists
+  
     const existingUser = await AllSignup.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ 
@@ -442,11 +279,11 @@ app.post('/api/auth/signup', async (req, res) => {
       });
     }
 
-    // Generate OTP
+   
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
-    // Create user
+   
     const user = new AllSignup({
       firstname,
       email,
@@ -457,7 +294,7 @@ app.post('/api/auth/signup', async (req, res) => {
 
     await user.save();
 
-    // Send OTP email
+    
     try {
       await transporter.sendMail({
         from: process.env.EMAIL_USER,
@@ -465,13 +302,12 @@ app.post('/api/auth/signup', async (req, res) => {
         subject: 'Email Verification OTP',
         html: `
           <h1>Email Verification</h1>
-          <p>Your OTP for verification is: <strong>${otp}</strong></p>
+          <p>Your OTP for verification is: <strong> ${otp} </strong></p>
           <p>This OTP will expire in 10 minutes.</p>
         `
       });
     } catch (emailError) {
       console.error('Email sending error:', emailError);
-      // Even if email fails, we'll return success since user is created
     }
 
     res.status(201).json({
@@ -505,13 +341,13 @@ app.post('/api/auth/verify-otp', async (req, res) => {
       });
     }
 
-    // Update user verification status
+  
     user.isVerified = true;
     user.otp = undefined;
     user.otpExpiry = undefined;
     await user.save();
 
-    // Generate JWT
+  
     const token = jwt.sign(
       { userId: user._id },
       process.env.JWT_SECRET || generateRandomSecretKey(),
@@ -535,6 +371,67 @@ app.post('/api/auth/verify-otp', async (req, res) => {
 
 
 
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { firstname, password } = req.body;
+
+   
+    const user = await AllSignup.findOne({ firstname });
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid username or password'
+      });
+    }
+
+    
+    if (!user.isVerified) {
+      return res.status(401).json({
+        success: false,
+        message: 'Please verify your email first'
+      });
+    }
+
+  
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid username or password'
+      });
+    }
+
+   
+    const token = jwt.sign(
+      { 
+        userId: user._id,
+        firstname: user.firstname,
+        email: user.email,
+        role: user.role || 'user'
+      },
+      process.env.JWT_SECRET || generateRandomSecretKey(),
+      { expiresIn: '30d' }
+    );
+
+    res.json({
+      success: true,
+      message: 'Login successful',
+      token,
+      user: {
+        firstname: user.firstname,
+        email: user.email,
+        role: user.role || 'user'
+      }
+    });
+
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Login failed. Please try again.'
+    });
+  }
+});
 
 
 

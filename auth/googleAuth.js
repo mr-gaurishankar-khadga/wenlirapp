@@ -3,6 +3,7 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const User = require('../models/User'); 
 
+// 2. Update your auth/googleAuth.js
 const initializeGoogleStrategy = () => {
   passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
@@ -27,6 +28,7 @@ const initializeGoogleStrategy = () => {
 
       done(null, newUser);
     } catch (error) {
+      console.error('Google Strategy Error:', error);
       done(error, null);
     }
   }));
@@ -45,6 +47,29 @@ passport.deserializeUser(async (id, done) => {
     done(error, null);
   }
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // Authentication routes
 // const googleAuthRoutes = (app) => {

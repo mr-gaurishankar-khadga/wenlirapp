@@ -45,7 +45,7 @@ const initializeGoogleStrategy = () => {
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     callbackURL: process.env.NODE_ENV === 'production'
-      ? 'https://your-production-domain.com/auth/google/callback'
+      ? 'https://wenlirapp11.onrender.com/auth/google/callback'
       : 'http://localhost:8000/auth/google/callback',
     proxy: true
   }, async (accessToken, refreshToken, profile, done) => {

@@ -5,18 +5,20 @@ const ExtractJwt = require('passport-jwt').ExtractJwt;
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-// Helper function to generate JWT token
+// Shared token generation function for both Google and manual login
 const generateToken = (user) => {
   return jwt.sign(
     {
       userId: user._id,
       email: user.email,
+      firstname: user.firstname || user.displayName,
       role: user.role || 'user'
     },
     process.env.JWT_SECRET,
     { expiresIn: '7d' }
   );
 };
+
 
 // Add this JWT strategy configuration
 const initializeJwtStrategy = () => {
@@ -63,7 +65,7 @@ const initializeGoogleStrategy = () => {
 
       // Generate token
       const token = generateToken(user);
-      user.token = token; // Attach token to user object
+      user.token = token; 
       
       return done(null, user);
     } catch (error) {
@@ -135,21 +137,71 @@ const setupGoogleAuthRoutes = (app) => {
     });
   });
 
-  // Keep your profile endpoint
-  app.get('/profile', 
-    passport.authenticate('jwt', { session: false }),
-    (req, res) => {
-      res.json({
-        success: true,
-        user: {
-          id: req.user._id,
-          displayName: req.user.displayName,
-          email: req.user.email,
-          role: req.user.role
-        }
+
+    // authMiddleware.js (or where your authentication middleware is defined)
+const authenticateJWT = (req, res, next) => {
+  try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+          return res.status(401).json({
+              success: false,
+              message: 'No authorization header'
+          });
+      }
+
+      const token = authHeader.split(' ')[1];
+      if (!token) {
+          return res.status(401).json({
+              success: false,
+              message: 'No token provided'
+          });
+      }
+
+      jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+          if (err) {
+              return res.status(401).json({
+                  success: false,
+                  message: 'Invalid or expired token'
+              });
+          }
+          req.user = user;
+          next();
       });
-    }
-  );
+  } catch (error) {
+      return res.status(401).json({
+          success: false,
+          message: 'Authentication failed'
+      });
+  }
+};
+
+// Profile route
+app.get('/profile', authenticateJWT, (req, res) => {
+  try {
+      if (!req.user) {
+          return res.status(401).json({
+              success: false,
+              message: 'User not authenticated'
+          });
+      }
+
+      res.json({
+          success: true,
+          user: {
+              id: req.user.userId,
+              firstname: req.user.firstname || req.user.displayName,
+              email: req.user.email,
+              role: req.user.role || 'user'
+          }
+      });
+  } catch (error) {
+      console.error('Profile error:', error);
+      res.status(500).json({
+          success: false,
+          message: 'Server error'
+      });
+  }
+});
 };
 
 module.exports = {

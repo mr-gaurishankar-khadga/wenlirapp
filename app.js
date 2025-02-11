@@ -374,6 +374,16 @@ app.post('/api/auth/verify-otp', async (req, res) => {
 
 
 
+
+
+
+
+
+
+
+
+
+
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { firstname, password } = req.body;

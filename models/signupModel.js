@@ -25,6 +25,10 @@ const allSignupSchema = new mongoose.Schema({
     default: false
   },
   otp: String,
+  tokenVersion: {
+    type: Number,
+    default: 0
+  },
   otpExpiry: Date,
   createdAt: {
     type: Date,

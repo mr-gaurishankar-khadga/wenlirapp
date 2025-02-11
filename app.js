@@ -135,6 +135,48 @@ module.exports = router;
 
 
 
+// Routes
+app.get('/auth/google',
+  passport.authenticate('google', {
+    scope: ['profile', 'email'],
+  })
+);
+
+
+app.get('/profile', (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ 
+      success: false,
+      message: 'Not authenticated'
+    });
+  }
+
+  res.json({
+    success: true,
+    displayName: req.user.displayName,
+    email: req.user.email,
+    googleId: req.user.googleId
+  });
+});
+
+
+app.get('/auth/google/callback',
+  passport.authenticate('google', { failureRedirect: '/' }),
+  (req, res) => {
+    try {
+      const frontendURL = process.env.NODE_ENV === 'production'
+        ? 'https://fancy-dragon-929394.netlify.app'
+        : 'http://localhost:5173';
+
+      // Attach token to the redirect URL (if applicable)
+      const token = req.user && req.user.token ? `?token=${req.user.token}` : '';
+      res.redirect(`${frontendURL}/profile${token}`);
+    } catch (error) {
+      console.error('Error during redirection:', error);
+      res.status(500).send('Internal Server Error');
+    }
+  }
+);
 
 
 
@@ -165,6 +207,58 @@ app.get('/health', (req, res) => {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: 'Access denied. No token provided.'
+    });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || generateRandomSecretKey());
+    req.user = decoded;
+    next();
+  } catch (error) {
+    res.status(403).json({
+      success: false,
+      message: 'Invalid token.'
+    });
+  }
+};
+
+
+
+
+
+
+
+
 // Email configuration
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -174,92 +268,65 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// Utility function for token generation
-const generateToken = (user) => {
-  if (!process.env.JWT_SECRET) {
-    throw new Error('JWT_SECRET is not defined in environment variables');
-  }
-  
-  return jwt.sign(
-    {
-      userId: user._id,
-      firstname: user.firstname,
-      email: user.email,
-      role: user.role || 'user'
-    },
-    process.env.JWT_SECRET,
-    { expiresIn: '7d' }
-  );
-};
 
-
-
-
-// Signup endpoint
 app.post('/api/auth/signup', async (req, res) => {
   try {
     const { firstname, email, password } = req.body;
 
-    // Check for existing user
-    const existingUser = await AllSignup.findOne({
-      $or: [{ email }, { firstname }]
-    });
-
+  
+    const existingUser = await AllSignup.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: 'Username or email already exists'
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Email already registered' 
       });
     }
 
-
-
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Generate OTP
+   
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
-    
-    // Create new user
-    const newUser = new AllSignup({
+   
+    const user = new AllSignup({
       firstname,
       email,
-      password: hashedPassword,
+      password,
       otp,
-      otpExpiry: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
-      isVerified: false,
-      role: 'user'
+      otpExpiry
     });
 
-    await newUser.save();
+    await user.save();
 
-    // Send OTP email
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: 'Email Verification OTP',
-      html: `<h1>Your OTP: ${otp}</h1><p>Valid for 10 minutes</p>`
-    };
-
-    await transporter.sendMail(mailOptions);
+    
+    try {
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: 'Email Verification OTP',
+        html: `
+          <h1>Email Verification</h1>
+          <p>Your OTP for verification is: <strong> ${otp} </strong></p>
+          <p>This OTP will expire in 10 minutes.</p>
+        `
+      });
+    } catch (emailError) {
+      console.error('Email sending error:', emailError);
+    }
 
     res.status(201).json({
       success: true,
-      message: 'Signup successful! Please check your email for OTP'
+      message: 'Registration successful! Please check your email for OTP.'
     });
 
   } catch (error) {
     console.error('Signup error:', error);
     res.status(500).json({
       success: false,
-      message: 'Signup failed. Please try again.'
+      message: 'Registration failed. Please try again.'
     });
   }
 });
 
-// OTP verification endpoint
 app.post('/api/auth/verify-otp', async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -277,28 +344,27 @@ app.post('/api/auth/verify-otp', async (req, res) => {
       });
     }
 
-    // Update user verification status
+  
     user.isVerified = true;
     user.otp = undefined;
     user.otpExpiry = undefined;
     await user.save();
 
-    // Generate token after verification
-    const token = generateToken(user);
+  
+    const token = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_SECRET || generateRandomSecretKey(),
+      { expiresIn: '30d' }
+    );
 
     res.json({
       success: true,
       message: 'Email verified successfully',
-      token,
-      user: {
-        firstname: user.firstname,
-        email: user.email,
-        role: user.role
-      }
+      token
     });
 
   } catch (error) {
-    console.error('Verification error:', error);
+    console.error('OTP verification error:', error);
     res.status(500).json({
       success: false,
       message: 'Verification failed. Please try again.'
@@ -308,34 +374,20 @@ app.post('/api/auth/verify-otp', async (req, res) => {
 
 
 
-
-
-
-// 2. Update the login endpoint in app.js
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { firstname, password } = req.body;
-    
-    // Debug log
-    console.log('Login attempt for:', firstname);
 
-    // Find user - make sure to use case-insensitive search
-    const user = await AllSignup.findOne({ 
-      firstname: new RegExp(`^${firstname}$`, 'i')
-    });
-
+   
+    const user = await AllSignup.findOne({ firstname });
     if (!user) {
-      console.log('User not found');
       return res.status(401).json({
         success: false,
         message: 'Invalid username or password'
       });
     }
 
-    // Debug log
-    console.log('User found:', user.firstname, 'Verified:', user.isVerified);
-
-    // Check verification
+    
     if (!user.isVerified) {
       return res.status(401).json({
         success: false,
@@ -343,41 +395,35 @@ app.post('/api/auth/login', async (req, res) => {
       });
     }
 
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    
-    // Debug log
-    console.log('Password valid:', isValidPassword);
-
-    if (!isValidPassword) {
+  
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
       return res.status(401).json({
         success: false,
         message: 'Invalid username or password'
       });
     }
 
-    // Generate token with all necessary user info
+   
     const token = jwt.sign(
-      {
+      { 
         userId: user._id,
         firstname: user.firstname,
         email: user.email,
-        role: user.role
+        role: user.role || 'user'
       },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      process.env.JWT_SECRET || generateRandomSecretKey(),
+      { expiresIn: '30d' }
     );
 
-    // Send success response with all necessary user info
     res.json({
       success: true,
       message: 'Login successful',
       token,
       user: {
-        _id: user._id,
         firstname: user.firstname,
         email: user.email,
-        role: user.role
+        role: user.role || 'user'
       }
     });
 
@@ -389,6 +435,15 @@ app.post('/api/auth/login', async (req, res) => {
     });
   }
 });
+
+
+
+
+
+
+
+
+
 
 
 

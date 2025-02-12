@@ -20,10 +20,10 @@ const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cashfreeRoutes = require('./cashfree');
-const AllSignup = require('./models/signupModel');
 const shiprocketRoutes = require('./routes/shiprocketRoutes');
 const slidesController = require('./slidesController');
-
+const signupRoutes = require('./routes/signRoute');
+const AllSignup = require('./models/signupModel');
 
 
 const app = express();
@@ -123,6 +123,7 @@ app.use('/', cashfreeRoutes);
 app.use('/api/cashfree', cashfreeRoutes);
 app.use('/api/shiprocket', shiprocketRoutes);
 app.use('/api', slidesController);
+app.use('/api/auth', signupRoutes);
 
 
 
@@ -198,188 +199,6 @@ app.get('/health', (req, res) => {
     uptime: process.uptime()
   });
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({
-      success: false,
-      message: 'Access denied. No token provided.'
-    });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || generateRandomSecretKey());
-    req.user = decoded;
-    next();
-  } catch (error) {
-    res.status(403).json({
-      success: false,
-      message: 'Invalid token.'
-    });
-  }
-};
-
-
-
-
-
-
-
-
-// Email configuration
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: 'wenlifashions@gmail.com',
-    pass: 'uwoh jtud qabp ynjf',
-  }
-});
-
-
-app.post('/api/auth/signup', async (req, res) => {
-  try {
-    const { firstname, email, password } = req.body;
-
-  
-    const existingUser = await AllSignup.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Email already registered' 
-      });
-    }
-
-   
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
-
-   
-    const user = new AllSignup({
-      firstname,
-      email,
-      password,
-      otp,
-      otpExpiry
-    });
-
-    await user.save();
-
-    
-    try {
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: 'Email Verification OTP',
-        html: `
-          <h1>Email Verification</h1>
-          <p>Your OTP for verification is: <strong> ${otp} </strong></p>
-          <p>This OTP will expire in 10 minutes.</p>
-        `
-      });
-    } catch (emailError) {
-      console.error('Email sending error:', emailError);
-    }
-
-    res.status(201).json({
-      success: true,
-      message: 'Registration successful! Please check your email for OTP.'
-    });
-
-  } catch (error) {
-    console.error('Signup error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Registration failed. Please try again.'
-    });
-  }
-});
-
-app.post('/api/auth/verify-otp', async (req, res) => {
-  try {
-    const { email, otp } = req.body;
-
-    const user = await AllSignup.findOne({
-      email,
-      otp,
-      otpExpiry: { $gt: Date.now() }
-    });
-
-    if (!user) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid or expired OTP'
-      });
-    }
-
-  
-    user.isVerified = true;
-    user.otp = undefined;
-    user.otpExpiry = undefined;
-    await user.save();
-
-  
-    const token = jwt.sign(
-      { userId: user._id },
-      process.env.JWT_SECRET || generateRandomSecretKey(),
-      { expiresIn: '30d' }
-    );
-
-    res.json({
-      success: true,
-      message: 'Email verified successfully',
-      token
-    });
-
-  } catch (error) {
-    console.error('OTP verification error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Verification failed. Please try again.'
-    });
-  }
-});
-
-
-
-
-
-
-
-
-
 
 
 

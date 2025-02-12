@@ -1,5 +1,3 @@
-
-// Backend (Express Router - cashfree.js)
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
@@ -8,11 +6,62 @@ const crypto = require('crypto');
 // In-memory storage to track processed orders
 const processedOrders = new Set();
 
+// Helper function to validate Cashfree credentials
+const validateCashfreeCredentials = async () => {
+  try {
+    // Testing credentials by creating a small test order instead of GET request
+    const testOrderData = {
+      order_id: `ORDER-${Date.now()}`,
+      order_amount: amount,
+      order_currency: 'INR',
+      customer_details: {
+        customer_id: customer.phone,
+        customer_name: customer.name,
+        customer_email: customer.email,
+        customer_phone: customer.phone
+      },
+      order_meta: {
+        return_url: `${process.env.CLIENT_URL}/Cashfree?payment_status=success&order_id={order_id}`,
+        notify_url: `${process.env.VITE_BACKEND_URL}/api/cashfree/webhook`
+      },
+    };
+
+    await axios.post(
+      'https://api.cashfree.com/pg/orders',
+      testOrderData,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-version': '2022-01-01',
+          'x-client-id': process.env.CASHFREE_CLIENT_ID,
+          'x-client-secret': process.env.CASHFREE_CLIENT_SECRET
+        }
+      }
+    );
+    return true;
+  } catch (error) {
+    console.error('Cashfree Credential Validation Error:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
+    return false;
+  }
+};
+
 // Create Cashfree order
 router.post('/create-order', async (req, res) => {
   try {
     const { amount, customer, product, quantity, processingKey } = req.body;
     
+    // Validate required fields
+    if (!amount || !customer || !product || !quantity) {
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        required: ['amount', 'customer', 'product', 'quantity']
+      });
+    }
+
     // Check if this processing key has already been used
     if (processedOrders.has(processingKey)) {
       return res.status(400).json({ error: 'Duplicate order request' });
@@ -36,15 +85,14 @@ router.post('/create-order', async (req, res) => {
     };
 
     const response = await axios.post(
-      'https://sandbox.cashfree.com/pg/orders',
+      'https://api.cashfree.com/pg/orders',
       orderData,
       {
         headers: {
           'Content-Type': 'application/json',
           'x-api-version': '2022-01-01',
           'x-client-id': process.env.CASHFREE_CLIENT_ID,
-          'x-client-secret': process.env.CASHFREE_CLIENT_SECRET,
-          'x-request-id': Date.now().toString()
+          'x-client-secret': process.env.CASHFREE_CLIENT_SECRET
         }
       }
     );
@@ -57,7 +105,12 @@ router.post('/create-order', async (req, res) => {
       orderId: orderData.order_id
     });
   } catch (error) {
-    console.error('Cashfree Order Creation Error:', error.response?.data || error.message);
+    console.error('Cashfree Order Creation Error:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    });
+
     res.status(500).json({
       error: 'Order creation failed',
       details: error.response?.data || error.message
@@ -66,24 +119,12 @@ router.post('/create-order', async (req, res) => {
 });
 
 // Verify payment and create Shiprocket order
-router.post('/verify-and-create-order', async (req, res) => {
+router.post('/verify-payment', async (req, res) => {
   try {
-    const { orderId, orderDetails, processingKey } = req.body;
+    const { orderId } = req.body;
     
-    // Check if this processing key has already been used
-    if (!processedOrders.has(processingKey)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid or expired processing key' 
-      });
-    }
-
-    // Remove the processing key to prevent reuse
-    processedOrders.delete(processingKey);
-    
-    // First verify Cashfree payment
-    const paymentResponse = await axios.get(
-      `https://sandbox.cashfree.com/pg/orders/${orderId}`,
+    const response = await axios.get(
+      `https://api.cashfree.com/pg/orders/${orderId}`,
       {
         headers: {
           'x-api-version': '2022-01-01',
@@ -93,11 +134,25 @@ router.post('/verify-and-create-order', async (req, res) => {
       }
     );
 
-    if (paymentResponse.data.order_status !== 'PAID') {
-      return res.json({ success: false, message: 'Payment not completed' });
-    }
+    res.json({
+      status: response.data.order_status,
+      details: response.data
+    });
+  } catch (error) {
+    console.error('Payment verification error:', error.response?.data || error.message);
+    res.status(500).json({
+      error: 'Payment verification failed',
+      details: error.response?.data || error.message
+    });
+  }
+});
 
-    // Create Shiprocket order after payment verification
+// Create Shiprocket order
+router.post('/create-shipping', async (req, res) => {
+  try {
+    const { orderDetails } = req.body;
+
+    // Create Shiprocket order
     const loginResponse = await axios.post('https://apiv2.shiprocket.in/v1/external/auth/login', {
       email: 'wenliFashions.in@gmail.com',
       password: '#Wenli@123#45'
@@ -155,30 +210,26 @@ router.post('/verify-and-create-order', async (req, res) => {
       }
     );
 
-    const finalOrderData = {
-      ...orderDetails,
-      id: createOrderResponse.data.order_id,
-      shipmentId: createOrderResponse.data.shipment_id,
-      orderDate: new Date().toISOString(),
-      status: 'Confirmed'
-    };
-
     res.json({
       success: true,
-      orderData: finalOrderData
+      orderData: {
+        id: createOrderResponse.data.order_id,
+        shipmentId: createOrderResponse.data.shipment_id,
+        orderDate: new Date().toISOString(),
+        status: 'Confirmed'
+      }
     });
-
   } catch (error) {
-    console.error('Order processing failed:', error);
+    console.error('Shipping order creation failed:', error.response?.data || error.message);
     res.status(500).json({
       success: false,
-      error: 'Order processing failed',
-      details: error.message
+      error: 'Shipping order creation failed',
+      details: error.response?.data || error.message
     });
   }
 });
 
-// Webhook handler (remains the same)
+// Webhook handler
 router.post('/webhook', async (req, res) => {
   try {
     const webhookSignature = req.headers['x-webhook-signature'];
@@ -195,16 +246,11 @@ router.post('/webhook', async (req, res) => {
     const event = req.body.event;
     const orderId = req.body.order.order_id;
 
-    switch (event) {
-      case 'order.paid':
-        console.log(`Payment successful for order ${orderId}`);
-        break;
-      case 'order.failed':
-        console.log(`Payment failed for order ${orderId}`);
-        break;
-      default:
-        console.log(`Unhandled webhook event: ${event}`);
-    }
+    console.log('Webhook received:', {
+      event,
+      orderId,
+      data: req.body
+    });
 
     res.status(200).json({ status: 'Webhook processed successfully' });
   } catch (error) {

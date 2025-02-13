@@ -77,6 +77,33 @@ router.post('/signup', async (req, res) => {
   }
 });
 
+
+
+
+// Get all users route
+router.get('/users', async (req, res) => {
+  try {
+    const users = await AllSignup.find({})
+      .select('-password -otp -otpExpiry'); // Exclude sensitive fields
+
+    res.status(200).json({
+      success: true,
+      users
+    });
+    
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch users'
+    });
+  }
+});
+
+
+
+
+
 // OTP verification route
 router.post('/verify-otp', async (req, res) => {
   try {

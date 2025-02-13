@@ -16,12 +16,12 @@ const Slide = mongoose.model('TextSlide', slideSchema);
 // Define the router
 const router = express.Router();
 
-// Route to upload slides
+
 router.post('/upload-slides', async (req, res) => {
   try {
     const { slides } = req.body;
 
-    // Check if slides array is not empty
+
     if (!slides || slides.length === 0) {
       return res.status(400).json({ message: 'Please provide slides to upload' });
     }
@@ -48,7 +48,7 @@ router.post('/upload-slides', async (req, res) => {
   }
 });
 
-// Route to get slides
+
 router.get('/get-slides', async (req, res) => {
   try {
     const slides = await Slide.find();

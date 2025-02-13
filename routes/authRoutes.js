@@ -89,4 +89,27 @@ router.post('/api/verify-otp1', async (req, res) => {
   }
 });
 
+
+
+
+
+
+// In your authRoutes.js
+router.get('/login-history', async (req, res) => {
+  try {
+    const logins = await LoginHistory.find()
+      .sort({ loginTime: -1 })
+      .limit(100);  // Get last 100 logins
+    
+    res.json({
+      success: true,
+      logins
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error fetching login history' 
+    });
+  }
+});
 module.exports = router;

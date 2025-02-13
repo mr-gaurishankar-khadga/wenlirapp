@@ -22,6 +22,7 @@ const jwt = require('jsonwebtoken');
 const cashfreeRoutes = require('./cashfree');
 const shiprocketRoutes = require('./routes/shiprocketRoutes');
 const slidesController = require('./slidesController');
+const imageSliderRoutes = require('./imageSlider');
 const signupRoutes = require('./routes/signRoute');
 const AllSignup = require('./models/signupModel');
 
@@ -123,6 +124,7 @@ app.use('/', cashfreeRoutes);
 app.use('/api/cashfree', cashfreeRoutes);
 app.use('/api/shiprocket', shiprocketRoutes);
 app.use('/api', slidesController);
+app.use('/api', imageSliderRoutes);
 app.use('/api/auth', signupRoutes);
 
 
@@ -270,7 +272,25 @@ app.post('/api/auth/login', async (req, res) => {
 
 
 
+// Add to your routes file
+app.get('/google-users', async (req, res) => {
+  try {
+    const users = await User.find({})
+      .select('-googleId')
+      .populate('likedProducts', 'name');
 
+    res.status(200).json({
+      success: true,
+      users
+    });
+  } catch (error) {
+    console.error('Error fetching Google users:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch Google users'
+    });
+  }
+});
 
 
 

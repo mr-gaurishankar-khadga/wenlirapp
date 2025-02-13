@@ -27,7 +27,13 @@ transporter.verify((error, success) => {
 
 router.post('/', async (req, res) => {
   
-  const {shiprocketOrderId,shipmentId, product, quantity, paymentMethod, price, address, email, name, phone, secAddress, pincode, buiding, state, city, size, status } = req.body;
+  const {shiprocketOrderId,
+    shipmentId, product, 
+    quantity, paymentMethod, 
+    price, address, email, 
+    name, phone, secAddress, 
+    pincode, buiding, state, 
+    city, size, status } = req.body;
 
   try {
     const newPayment = new Payment({
@@ -120,15 +126,55 @@ router.post('/', async (req, res) => {
 
 
 
+// API endpoint to fetch all payments
+router.get('/api/payments', async (req, res) => {
+  try {
+    const payments = await Payment.find();
+    res.status(200).json(payments);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error fetching payment data', error });
+  }
+});
+
+
+// In your Express router (backend)
+router.delete('/api/payments/:id', async (req, res) => {
+  try {
+    const orderId = req.params.id;
+
+    // Check if order exists
+    const order = await Payment.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Order not found' 
+      });
+    }
+
+    // Delete the order
+    await Payment.findByIdAndDelete(orderId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Order deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Error deleting order:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting order',
+      error: error.message
+    });
+  }
+});
 
 
 
 
 
-
-
-
-
+// const response = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/payments`);
 
 
 

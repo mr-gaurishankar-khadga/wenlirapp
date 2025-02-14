@@ -146,131 +146,124 @@ router.post('/verify-payment', async (req, res) => {
     });
   }
 });
-
 // Create Shiprocket order
 router.post('/create-shipping', async (req, res) => {
   try {
     const { orderDetails } = req.body;
-    
-    // [FIXED] Added validation for required shipping fields
-    if (!orderDetails || !orderDetails.product || !orderDetails.name || 
-        !orderDetails.address || !orderDetails.city || !orderDetails.pincode || 
-        !orderDetails.state || !orderDetails.email || !orderDetails.phone || 
-        !orderDetails.quantity) {
-      return res.status(400).json({
-        success: false,
-        error: 'Missing required shipping details'
+
+    // Create Shiprocket order with improved error handling
+    try {
+      const loginResponse = await axios.post('https://apiv2.shiprocket.in/v1/external/auth/login', {
+        email: 'wenliFashions.in@gmail.com',
+        password: '#Wenli@123#45'
       });
-    }
 
-    // [FIXED] Get Shiprocket credentials from environment variables instead of hardcoding
-    const shiprocketEmail = process.env.SHIPROCKET_EMAIL || 'wenliFashions.in@gmail.com';
-    const shiprocketPassword = process.env.SHIPROCKET_PASSWORD || '#Wenli@123#45';
-
-    // Create Shiprocket order
-    const loginResponse = await axios.post('https://apiv2.shiprocket.in/v1/external/auth/login', {
-      email: shiprocketEmail,
-      password: shiprocketPassword
-    });
-
-    if (!loginResponse.data.token) {
-      console.error('Shiprocket authentication failed:', loginResponse.data);
-      throw new Error('Shiprocket authentication failed');
-    }
-
-    const token = loginResponse.data.token;
-    
-    // [FIXED] Improved order ID format with date for better tracking
-    const today = new Date();
-    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-    const randomStr = Math.random().toString(36).substring(2, 10).toUpperCase();
-    const shiprocketOrderId = `WF-${dateStr}-${randomStr}`;
-
-    // [FIXED] Proper type conversion for quantity and price
-    const quantity = parseInt(orderDetails.quantity, 10);
-    const unitPrice = parseFloat(orderDetails.product.price);
-    const subTotal = unitPrice * quantity;
-
-    const shiprocketOrderData = {
-      order_id: shiprocketOrderId,
-      order_date: new Date().toISOString().split('T')[0],
-      pickup_location: "Home",
-      channel_id: process.env.SHIPROCKET_CHANNEL_ID || "5794009",
-      billing_customer_name: orderDetails.name,
-      billing_last_name: "NA",
-      billing_address: orderDetails.address,
-      billing_city: orderDetails.city,
-      billing_pincode: orderDetails.pincode,
-      billing_state: orderDetails.state,
-      billing_country: "India",
-      billing_email: orderDetails.email,
-      billing_phone: orderDetails.phone,
-      shipping_is_billing: true,
-      order_items: [
-        {
-          name: orderDetails.product.title,
-          sku: orderDetails.product.sku || `SKU-${orderDetails.product.id || Date.now()}`,
-          units: quantity,
-          selling_price: unitPrice,
-          discount: 0,
-          tax: 18,
-          hsn: orderDetails.product.hsn || 621710
-        }
-      ],
-      payment_method: "Prepaid",
-      sub_total: subTotal,
-      length: 10,
-      breadth: 5,
-      height: 2,
-      weight: 0.5
-    };
-
-    // [FIXED] Better error handling for Shiprocket API response
-    const createOrderResponse = await axios.post(
-      'https://apiv2.shiprocket.in/v1/external/orders/create/adhoc',
-      shiprocketOrderData,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
+      if (!loginResponse.data || !loginResponse.data.token) {
+        console.error('Shiprocket login failed:', loginResponse.data);
+        return res.status(500).json({
+          success: false,
+          error: 'Shiprocket authentication failed'
+        });
       }
-    );
 
-    if (!createOrderResponse.data || !createOrderResponse.data.order_id) {
-      console.error('Shiprocket order creation failed:', createOrderResponse.data);
+      const token = loginResponse.data.token;
+      
+      // Create a more reliable order ID
+      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const shiprocketOrderId = `WF-${dateStr}-${Math.random().toString(36).substring(2, 10)}`;
+
+      // Ensure numeric values are properly converted
+      const quantity = parseInt(orderDetails.quantity, 10) || 1;
+      const unitPrice = parseFloat(orderDetails.product.price) || 0;
+
+      const shiprocketOrderData = {
+        order_id: shiprocketOrderId,
+        order_date: new Date().toISOString().split('T')[0],
+        pickup_location: "Home",
+        channel_id: "5794009",
+        billing_customer_name: orderDetails.name,
+        billing_last_name: "NA",
+        billing_address: orderDetails.address,
+        billing_city: orderDetails.city,
+        billing_pincode: orderDetails.pincode,
+        billing_state: orderDetails.state,
+        billing_country: "India",
+        billing_email: orderDetails.email,
+        billing_phone: orderDetails.phone,
+        shipping_is_billing: true,
+        order_items: [
+          {
+            name: orderDetails.product.title,
+            sku: `SKU-${orderDetails.product.id || Date.now()}`,
+            units: quantity,
+            selling_price: unitPrice,
+            discount: 0,
+            tax: 18,
+            hsn: 621710
+          }
+        ],
+        payment_method: "Prepaid",
+        sub_total: unitPrice * quantity,
+        length: 10,
+        breadth: 5,
+        height: 2,
+        weight: 0.5
+      };
+
+      const createOrderResponse = await axios.post(
+        'https://apiv2.shiprocket.in/v1/external/orders/create/adhoc',
+        shiprocketOrderData,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!createOrderResponse.data || createOrderResponse.data.status !== 1) {
+        console.error('Shiprocket order creation failed:', createOrderResponse.data);
+        return res.status(500).json({
+          success: false,
+          error: 'Shiprocket order creation failed',
+          details: createOrderResponse.data
+        });
+      }
+
+      res.json({
+        success: true,
+        orderData: {
+          id: createOrderResponse.data.order_id,
+          shipmentId: createOrderResponse.data.shipment_id,
+          shiprocketOrderId: shiprocketOrderId,
+          orderDate: new Date().toISOString(),
+          status: 'Confirmed'
+        }
+      });
+    } catch (shiprocketError) {
+      console.error('Shiprocket API error:', {
+        message: shiprocketError.message,
+        response: shiprocketError.response?.data,
+        status: shiprocketError.response?.status
+      });
+      
       return res.status(500).json({
         success: false,
-        error: 'Shiprocket order creation failed',
-        details: createOrderResponse.data
+        error: 'Shiprocket API error',
+        details: shiprocketError.response?.data || shiprocketError.message
       });
     }
-
-    res.json({
-      success: true,
-      orderData: {
-        id: createOrderResponse.data.order_id,
-        shipmentId: createOrderResponse.data.shipment_id,
-        shiprocketOrderId: shiprocketOrderId,
-        orderDate: new Date().toISOString(),
-        status: 'Confirmed'
-      }
-    });
   } catch (error) {
-    // [FIXED] Improved error logging with more details
-    console.error('Shipping order creation failed:', {
-      message: error.message,
-      response: error.response?.data || error.response,
-      stack: error.stack
-    });
-    
+    console.error('Shipping order creation failed:', error.message);
     res.status(500).json({
       success: false,
       error: 'Shipping order creation failed',
-      details: error.response?.data || error.message
+      details: error.message
     });
   }
 });
+
+
 
 // Webhook handler
 router.post('/webhook', async (req, res) => {

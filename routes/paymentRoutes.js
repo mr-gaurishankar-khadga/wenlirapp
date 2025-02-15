@@ -183,7 +183,7 @@ router.get('/user-orders/:email', async (req, res) => {
   try {
     const { email } = req.params;
     const orders = await Payment.find({ email: email })
-      .sort({ timestamp: -1 }); // Sort by newest first
+      .sort({ timestamp: -1 }); 
     
     res.status(200).json(orders);
   } catch (error) {

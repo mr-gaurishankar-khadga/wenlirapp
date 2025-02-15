@@ -23,7 +23,7 @@ router.post('/signup', async (req, res) => {
   try {
     const { firstname, email, password } = req.body;
 
-    // Check for existing user
+  
     const existingUser = await AllSignup.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ 
@@ -32,11 +32,11 @@ router.post('/signup', async (req, res) => {
       });
     }
 
-    // Generate OTP
+   
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
-    // Create new user
+   
     const user = new AllSignup({
       firstname,
       email,
@@ -84,7 +84,7 @@ router.post('/signup', async (req, res) => {
 router.get('/users', async (req, res) => {
   try {
     const users = await AllSignup.find({})
-      .select('-password -otp -otpExpiry'); // Exclude sensitive fields
+      .select('-password -otp -otpExpiry');
 
     res.status(200).json({
       success: true,
@@ -122,13 +122,13 @@ router.post('/verify-otp', async (req, res) => {
       });
     }
 
-    // Update user verification status
+  
     user.isVerified = true;
     user.otp = undefined;
     user.otpExpiry = undefined;
     await user.save();
 
-    // Generate JWT token
+   
     const token = jwt.sign(
       { userId: user._id },
       process.env.JWT_SECRET || generateRandomSecretKey(),

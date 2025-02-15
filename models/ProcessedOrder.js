@@ -10,7 +10,7 @@ const processedOrderSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
-    expires: 3600 // Documents will be automatically deleted after 1 hour
+    expires: 3600
   }
 });
 

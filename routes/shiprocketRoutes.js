@@ -4,11 +4,11 @@ const router = express.Router();
 const axios = require('axios');
 const Payment = require('../models/paymentModel'); 
 
-// Shiprocket credentials
+
 const SHIPROCKET_EMAIL = 'wenliFashions.in@gmail.com';
 const SHIPROCKET_PASSWORD = '#Wenli@123#45';
 
-// Get Shiprocket token
+
 async function getShiprocketToken() {
   try {
     const response = await axios.post('https://apiv2.shiprocket.in/v1/external/auth/login', {
@@ -22,15 +22,15 @@ async function getShiprocketToken() {
   }
 }
 
-// Create Shiprocket order
+
 router.post('/create-order', async (req, res) => {
   try {
     const { orderData, orderId } = req.body;
 
-    // Get Shiprocket token
+   
     const token = await getShiprocketToken();
 
-    // Prepare order data for Shiprocket
+  
     const shiprocketOrderData = {
       order_id: orderId || `WF-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       order_date: new Date().toISOString().split('T')[0],
@@ -107,7 +107,7 @@ router.post('/cancel-order', async (req, res) => {
     try {
       const { orderId } = req.body;
       
-      // First, get the payment record to verify the Shiprocket order ID
+     
       const payment = await Payment.findById(orderId);
       if (!payment) {
         return res.status(404).json({ message: 'Order not found' });
@@ -119,7 +119,7 @@ router.post('/cancel-order', async (req, res) => {
   
       const token = await getShiprocketToken();
   
-      // Cancel order in Shiprocket
+     
       const cancelResponse = await axios.post(
         'https://apiv2.shiprocket.in/v1/external/orders/cancel',
         {
@@ -134,7 +134,7 @@ router.post('/cancel-order', async (req, res) => {
         }
       );
   
-      // Update order status in database
+   
       payment.status = 'Cancelled';
       await payment.save();
   
@@ -154,12 +154,12 @@ router.post('/cancel-order', async (req, res) => {
     }
   });
   
-  // Create return request
+
   router.post('/create-return', async (req, res) => {
     try {
       const { orderId } = req.body;
       
-      // First, get the payment record
+     
       const payment = await Payment.findById(orderId);
       if (!payment) {
         return res.status(404).json({ message: 'Order not found' });
@@ -171,7 +171,7 @@ router.post('/cancel-order', async (req, res) => {
   
       const token = await getShiprocketToken();
   
-      // Create return request in Shiprocket
+     
       const returnResponse = await axios.post(
         'https://apiv2.shiprocket.in/v1/external/orders/create/return',
         {
@@ -189,7 +189,7 @@ router.post('/cancel-order', async (req, res) => {
         }
       );
   
-      // Update order status in database
+    
       payment.status = 'Return Requested';
       await payment.save();
   

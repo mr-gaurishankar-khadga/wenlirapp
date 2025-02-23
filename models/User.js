@@ -14,6 +14,10 @@ const UserSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  profileImage: {
+    type: String,
+    default: '',
+  },
   likedProducts: [{ 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Product' 

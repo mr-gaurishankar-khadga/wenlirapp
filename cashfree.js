@@ -35,9 +35,10 @@ router.post('/create-order', async (req, res) => {
         customer_phone: customer.phone
       },
       order_meta: {
-        return_url: `${process.env.CLIENT_URL}/Cashfree?payment_status=success&order_id={order_id}`,
-        notify_url: `${process.env.VITE_BACKEND_URL}/api/cashfree/webhook`
+        return_url: 'https://www.wenli.in/Cashfree?payment_status=success&order_id={order_id}',
+        notify_url: 'https://api.wenli.in/api/cashfree/webhook'
       },
+      
       order_note: `${product.title} x ${quantity}`
     };
 

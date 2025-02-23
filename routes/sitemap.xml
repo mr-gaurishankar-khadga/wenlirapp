@@ -1,0 +1,73 @@
+// Add this in your product routes file or create a new route file
+const express = require('express');
+const router = express.Router();
+const Product = require('../models/productModel'); // Adjust path as needed
+const xml = require('xml');
+
+// Dynamic sitemap generation
+router.get('/sitemap.xml', async (req, res) => {
+  try {
+    // Get all products
+    const products = await Product.find({}, 'title slug updatedAt').lean();
+    
+    // Set proper content type
+    res.header('Content-Type', 'application/xml');
+    
+    // Get your domain
+    const domain = 'https://wenli.in'; // Replace with your actual domain
+    
+    // Prepare sitemap items
+    const sitemapItems = [
+      // Static pages
+      { url: [
+          { loc: `${domain}/` },
+          { lastmod: new Date().toISOString() },
+          { changefreq: 'daily' },
+          { priority: '1.0' }
+        ] 
+      },
+      { url: [
+          { loc: `${domain}/about` },
+          { lastmod: new Date().toISOString() },
+          { changefreq: 'monthly' },
+          { priority: '0.7' }
+        ] 
+      },
+      { url: [
+          { loc: `${domain}/contact` },
+          { lastmod: new Date().toISOString() },
+          { changefreq: 'monthly' },
+          { priority: '0.7' }
+        ] 
+      },
+      
+      // Product pages
+      ...products.map(product => ({
+        url: [
+          { loc: `${domain}/product/${product.slug || encodeURIComponent(product.title)}` },
+          { lastmod: product.updatedAt ? new Date(product.updatedAt).toISOString() : new Date().toISOString() },
+          { changefreq: 'weekly' },
+          { priority: '0.9' }
+        ]
+      }))
+    ];
+    
+    // Generate XML
+    const sitemap = xml([
+      { 
+        urlset: [
+          { _attr: { xmlns: 'http://www.sitemaps.org/schemas/sitemap/0.9' } },
+          ...sitemapItems
+        ] 
+      }
+    ], { declaration: true });
+    
+    // Send response
+    res.send(sitemap);
+  } catch (error) {
+    console.error('Error generating sitemap:', error);
+    res.status(500).send('Error generating sitemap');
+  }
+});
+
+module.exports = router;

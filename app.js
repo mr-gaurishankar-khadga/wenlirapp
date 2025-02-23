@@ -36,8 +36,8 @@ const app = express();
 const corsOptions = {
   origin: function(origin, callback) {
     const allowedOrigins = [
-      'https://www.wenli.in',
-      'https://wenli.in',
+      'https://fancy-dragon-929394.netlify.app',
+      'https://fancy-dragon-929394.netlify.app',
       'http://localhost:5173'
     ];
     
